@@ -1,17 +1,16 @@
 package cn.leancloud.kafka.client.consumer;
 
-import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.*;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -38,9 +37,8 @@ public class BackPresureClient<K, V> implements Closeable {
     private final Consumer<K, V> consumer;
     private final ExecutorService workerPool;
     private final Thread fetcherThread;
-    private final ExecutorCompletionService<Result> service;
+    private final ExecutorCompletionService<HandleRecordSuccess> service;
     private final Set<TopicPartition> pausedPartitions;
-    private final MsgHandler<V> handler;
     private volatile State state;
 
     public BackPresureClient(Consumer<K, V> consumer,
@@ -50,12 +48,10 @@ public class BackPresureClient<K, V> implements Closeable {
         this.state = State.INIT;
         this.consumer = consumer;
         this.workerPool = workerPool;
-        this.fetcherThread = new Thread(new Fetcher(pollTimeout));
+        this.fetcherThread = new Thread(new Fetcher(pollTimeout, handler));
         this.service = new ExecutorCompletionService<>(workerPool);
         this.pausedPartitions = new HashSet<>();
-        this.handler = handler;
     }
-
 
     public synchronized void subscribe(Collection<String> topics, boolean consumeFromLargest) {
         if (subscribed() || closed()) {
@@ -87,51 +83,50 @@ public class BackPresureClient<K, V> implements Closeable {
 
     private class Fetcher implements Runnable {
         private final long pollTimeout;
+        private final MsgHandler<V> handler;
+        private final Map<HandleRecordSuccess, Future<HandleRecordSuccess>> pendingFutures;
 
-        Fetcher(long pollTimeout) {
+        Fetcher(long pollTimeout, MsgHandler<V> handler) {
             this.pollTimeout = pollTimeout;
+            this.handler = handler;
+            this.pendingFutures = new HashMap<>();
         }
 
         @Override
         public void run() {
             final Consumer<K, V> consumer = BackPresureClient.this.consumer;
-            int pendingCount = 0;
+            final MsgHandler<V> handler = this.handler;
+            PendingRecords pendingRecords = new PendingRecords();
+            final Map<HandleRecordSuccess, Future<HandleRecordSuccess>> pendingFutures = this.pendingFutures;
             while (true) {
                 try {
-                    ConsumerRecords<K, V> records = consumer.poll(pollTimeout);
-                    pendingCount += records.count();
+                    final ConsumerRecords<K, V> records = consumer.poll(pollTimeout);
                     for (ConsumerRecord<K, V> record : records) {
-                        String topic = record.topic();
-                        int partition = record.partition();
-                        long offset = record.offset();
-                        TopicPartition topicPartition = new TopicPartition(topic, partition);
+                        final TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
+                        pendingRecords.updatePendingTopicOffset(topicPartition, record.offset());
+
                         pausedPartitions.add(topicPartition);
 
-
-                        service.submit(() -> {
-                            handler.handleMessage(topic, record.value());
-                            return new Result(topicPartition, offset);
-                        });
-
-                        consumer.commitAsync();
+                        final HandleRecordSuccess resp = new HandleRecordSuccess(topicPartition, record.offset());
+                        pendingFutures.put(resp, service.submit(() -> {
+                            handler.handleMessage(record.topic(), record.value());
+                            return resp;
+                        }));
                     }
 
-                    consumer.pause(pausedPartitions);
+                    if (!records.isEmpty()) {
+                        consumer.pause(pausedPartitions);
+                    }
 
-
-                    Future<Result> f;
+                    Future<HandleRecordSuccess> f;
                     while ((f = service.poll()) != null) {
-                        try {
-                            Result r = f.get();
-                        } catch (InterruptedException | ExecutionException e) {
-
-                        }
-
-                        --pendingCount;
+                        assert f.isDone();
+                        HandleRecordSuccess r = f.get();
+                        pendingFutures.remove(r);
+                        pendingRecords.updateCompleteTopicOffset(r.topicPartition(), r.processedRecordOffset());
                     }
 
-
-                    if (pendingCount == 0) {
+                    if (pendingFutures.isEmpty()) {
                         consumer.commitSync();
                         consumer.resume(pausedPartitions);
                         pausedPartitions.clear();
@@ -148,24 +143,14 @@ public class BackPresureClient<K, V> implements Closeable {
                     logger.error("Fetcher quit with unexpected exception. Will rebalance after poll timeout.", ex);
                 }
             }
-        }
-    }
 
-    private static class Result {
-        private TopicPartition topicPartition;
-        private Long offset;
-
-        public Result(TopicPartition topicPartition, Long offset) {
-            this.topicPartition = topicPartition;
-            this.offset = offset;
+            cancelAllPendingFutures();
         }
 
-        public TopicPartition topicPartition() {
-            return topicPartition;
-        }
-
-        public Long offset() {
-            return offset;
+        private void cancelAllPendingFutures() {
+            for (Future<HandleRecordSuccess> future : pendingFutures.values()) {
+                future.cancel(false);
+            }
         }
     }
 
