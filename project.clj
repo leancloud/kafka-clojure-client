@@ -6,10 +6,13 @@
   :main ^:skip-aot leancloud-kafka-client.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
-             :dev     {:dependencies   [[junit/junit "4.12"]
-                                        [org.assertj/assertj-core "3.13.2"]
-                                        [org.awaitility/awaitility "3.1.6"]
-                                        [org.mockito/mockito-core "3.0.0"]]}}
+             :dev     {:dependencies [[junit/junit "4.12"]
+                                      [org.apache.logging.log4j/log4j-core "2.12.1"]
+                                      [org.apache.logging.log4j/log4j-api "2.12.1"]
+                                      [org.apache.logging.log4j/log4j-slf4j-impl "2.12.1"]
+                                      [org.assertj/assertj-core "3.13.2"]
+                                      [org.awaitility/awaitility "3.1.6"]
+                                      [org.mockito/mockito-core "3.0.0"]]}}
   :source-paths ["src/clj"]
   :test-paths ["test/clj" "test/java"]
   :java-source-paths ["src/java"]

@@ -1,44 +1,55 @@
 package cn.leancloud.kafka.client.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Future;
 
-public class SyncCommitPolicy<K, V> implements CommitPolicy {
-    private final Map<HandleRecordSuccess, Future<HandleRecordSuccess>> pendingFutures;
+public class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+    private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final Consumer<K, V> consumer;
+    private final Set<TopicPartition> completeTopicPartitions;
 
     public SyncCommitPolicy(Consumer<K, V> consumer) {
         this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
+        this.completeTopicPartitions = new HashSet<>();
     }
 
     @Override
-    public void updatePendingTopicOffset(TopicPartition topicPartition, long offset, Future<HandleRecordSuccess> future) {
-
+    public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
+        pendingFutures.put(record, future);
     }
 
     @Override
-    public void updateCompleteTopicOffset(HandleRecordSuccess success) {
-
+    public void completeRecord(ConsumerRecord<K, V> record) {
+        Future<ConsumerRecord<K, V>> v = pendingFutures.remove(record);
+        assert v != null;
+        completeTopicPartitions.add(new TopicPartition(record.topic(), record.partition()));
     }
 
     @Override
     public Set<TopicPartition> tryCommit() {
-        return null;
+        if (pendingFutures.isEmpty()) {
+            consumer.commitSync();
+            return completeTopicPartitions;
+        }
+        return Collections.emptySet();
     }
 
     @Override
-    public Set<TopicPartition> tryCommitOnClose() {
-        return null;
+    public void beforeClose() {
+        // only cancel all the pending futures, but we do not wait them to finish, because
+        // this policy uses sync commit without specific topic and offset. We can't sync commit
+        // at here otherwise some unprocessed record may falsely be committed.
+        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
+            future.cancel(false);
+        }
     }
 
     @Override
-    public Set<TopicPartition> tryCommitOnPartitionRevoked() {
-        return null;
+    public void onPartitionRevoked() {
     }
 }

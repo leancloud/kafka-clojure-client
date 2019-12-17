@@ -1,18 +1,19 @@
 package cn.leancloud.kafka.client.consumer;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 
 import java.util.Set;
 import java.util.concurrent.Future;
 
-public interface CommitPolicy {
-    void updatePendingTopicOffset(TopicPartition topicPartition, long offset, Future<HandleRecordSuccess> future);
+public interface CommitPolicy<K, V> {
+    void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future);
 
-    void updateCompleteTopicOffset(HandleRecordSuccess success);
+    void completeRecord(ConsumerRecord<K, V> record);
 
     Set<TopicPartition> tryCommit();
 
-    Set<TopicPartition> tryCommitOnClose();
+    void beforeClose();
 
-    Set<TopicPartition> tryCommitOnPartitionRevoked();
+    void onPartitionRevoked();
 }
