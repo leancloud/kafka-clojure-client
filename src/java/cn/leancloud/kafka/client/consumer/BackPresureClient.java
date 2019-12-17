@@ -148,7 +148,7 @@ public class BackPresureClient<K, V> implements Closeable {
             Future<HandleRecordSuccess> f;
             while ((f = service.poll()) != null) {
                 assert f.isDone();
-                HandleRecordSuccess r = f.get();
+                final HandleRecordSuccess r = f.get();
                 pendingFutures.remove(r);
             }
         }

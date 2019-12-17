@@ -17,7 +17,7 @@ public class HandleRecordSuccess {
         return topicPartition;
     }
 
-    Long processedRecordOffset() {
+    long processedRecordOffset() {
         return processedRecordOffset;
     }
 
