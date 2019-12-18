@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.*;
 
-public class BackPressureClient<K, V> implements Closeable {
+public final class BackPressureClient<K, V> implements Closeable {
     private static final ThreadFactory threadFactory = new NamedThreadFactory("back-pressure-task-worker-pool");
 
     private enum State {

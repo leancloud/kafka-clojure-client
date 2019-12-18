@@ -7,11 +7,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorCompletionService;
 
-public class SimpleClient<K, V> implements Closeable {
-    private static final ThreadFactory threadFactory = new NamedThreadFactory("back-pressure-task-worker-pool");
-
+public final class SimpleClient<K, V> implements Closeable {
     private enum State {
         INIT(0),
         SUBSCRIBED(1),

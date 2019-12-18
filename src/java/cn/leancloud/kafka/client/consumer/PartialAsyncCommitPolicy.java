@@ -12,7 +12,7 @@ import java.util.concurrent.Future;
 
 import static java.util.stream.Collectors.toSet;
 
-public class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+public final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
 
     private final Consumer<K, V> consumer;
