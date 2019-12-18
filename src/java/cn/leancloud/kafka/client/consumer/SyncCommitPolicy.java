@@ -34,7 +34,9 @@ public final class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     public Set<TopicPartition> tryCommit() {
         if (pendingFutures.isEmpty()) {
             consumer.commitSync();
-            return completeTopicPartitions;
+            final Set<TopicPartition> completePartitions = new HashSet<>(completeTopicPartitions);
+            completeTopicPartitions.clear();
+            return completePartitions;
         }
         return Collections.emptySet();
     }
@@ -47,10 +49,16 @@ public final class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
             future.cancel(false);
         }
+
+        // if there's no pending futures, it means all the messages fetched from broker
+        // have processed and we can commit safely
+        tryCommit();
+
         pendingFutures.clear();
     }
 
     @Override
     public void onPartitionRevoked(Collection<TopicPartition> partitions) {
+        tryCommit();
     }
 }

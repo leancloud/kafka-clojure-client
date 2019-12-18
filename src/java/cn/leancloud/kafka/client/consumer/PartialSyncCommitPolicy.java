@@ -44,6 +44,10 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
     @Override
     public Set<TopicPartition> tryCommit() {
+        if (completedTopicOffsets.isEmpty()) {
+            return Collections.emptySet();
+        }
+
         consumer.commitSync(completedTopicOffsets);
         return clearCompletedTopics();
     }
