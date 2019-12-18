@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 
-public class RebalanceListener<K, V> implements ConsumerRebalanceListener {
+public final class RebalanceListener<K, V> implements ConsumerRebalanceListener {
     private static final Logger logger = LoggerFactory.getLogger(RebalanceListener.class);
 
     private final Fetcher<K, V> fetcher;
@@ -22,7 +22,7 @@ public class RebalanceListener<K, V> implements ConsumerRebalanceListener {
     public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
         logger.info("Partitions was revoked {}", partitions);
 
-        policy.onPartitionRevoked();
+        policy.onPartitionRevoked(partitions);
     }
 
     @Override

@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 
-class Fetcher<K, V> implements Runnable, Closeable {
+final class Fetcher<K, V> implements Runnable, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(Fetcher.class);
 
     private final long pollTimeout;

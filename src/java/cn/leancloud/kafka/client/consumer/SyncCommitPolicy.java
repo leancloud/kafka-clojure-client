@@ -7,7 +7,7 @@ import org.apache.kafka.common.TopicPartition;
 import java.util.*;
 import java.util.concurrent.Future;
 
-public class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+public final class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final Consumer<K, V> consumer;
     private final Set<TopicPartition> completeTopicPartitions;
@@ -25,7 +25,7 @@ public class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
     @Override
     public void completeRecord(ConsumerRecord<K, V> record) {
-        Future<ConsumerRecord<K, V>> v = pendingFutures.remove(record);
+        final Future<ConsumerRecord<K, V>> v = pendingFutures.remove(record);
         assert v != null;
         completeTopicPartitions.add(new TopicPartition(record.topic(), record.partition()));
     }
@@ -47,9 +47,10 @@ public class SyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
             future.cancel(false);
         }
+        pendingFutures.clear();
     }
 
     @Override
-    public void onPartitionRevoked() {
+    public void onPartitionRevoked(Collection<TopicPartition> partitions) {
     }
 }
