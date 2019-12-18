@@ -66,7 +66,6 @@ class Fetcher<K, V> implements Runnable, Closeable {
         }
 
         policy.beforeClose();
-        consumer.close();
     }
 
     @Override

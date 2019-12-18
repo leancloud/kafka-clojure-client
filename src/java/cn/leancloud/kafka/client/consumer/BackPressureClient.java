@@ -2,16 +2,16 @@ package cn.leancloud.kafka.client.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.io.Closeable;
 import java.util.Collection;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.joining;
+import java.util.Map;
+import java.util.concurrent.*;
 
 public class BackPressureClient<K, V> implements Closeable {
+    private static final ThreadFactory threadFactory = new NamedThreadFactory("back-pressure-task-worker-pool");
+
     private enum State {
         INIT(0),
         SUBSCRIBED(1),
@@ -32,18 +32,38 @@ public class BackPressureClient<K, V> implements Closeable {
     private final ExecutorService workerPool;
     private final Thread fetcherThread;
     private final Fetcher<K, V> fetcher;
-    private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
     private final CommitPolicy<K, V> policy;
+    private final boolean shutdownWorkerPoolOnStop;
     private volatile State state;
 
-    public BackPressureClient(Consumer<K, V> consumer,
-                              ExecutorService workerPool,
+    public BackPressureClient(Map<String, Object> consumerConfigs,
                               long pollTimeout,
                               MsgHandler<V> handler) {
+        this(consumerConfigs, pollTimeout, handler, null, true);
+    }
+
+    public BackPressureClient(Map<String, Object> consumerConfigs,
+                              long pollTimeout,
+                              MsgHandler<V> handler,
+                              ExecutorService workerPool) {
+        this(consumerConfigs, pollTimeout, handler, workerPool, false);
+    }
+
+    private BackPressureClient(Map<String, Object> consumerConfigs,
+                               long pollTimeout,
+                               MsgHandler<V> handler,
+                               ExecutorService workerPool,
+                               boolean shutdownWorkerPoolOnStop) {
         this.state = State.INIT;
-        this.consumer = consumer;
+        this.consumer = new KafkaConsumer<>(consumerConfigs);
+        if (workerPool == null) {
+            workerPool = Executors.newCachedThreadPool(threadFactory);
+        }
+
         this.workerPool = workerPool;
-        this.service = new ExecutorCompletionService<>(workerPool);
+        this.shutdownWorkerPoolOnStop = shutdownWorkerPoolOnStop;
+
+        final ExecutorCompletionService<ConsumerRecord<K, V>> service = new ExecutorCompletionService<>(workerPool);
         this.policy = new SyncCommitPolicy<>(consumer);
         this.fetcher = new Fetcher<>(consumer, pollTimeout, handler, service, policy);
         this.fetcherThread = new Thread(fetcher);
@@ -83,6 +103,11 @@ public class BackPressureClient<K, V> implements Closeable {
         fetcher.close();
         try {
             fetcherThread.join();
+            consumer.close();
+            if (shutdownWorkerPoolOnStop) {
+                workerPool.shutdown();
+                workerPool.awaitTermination(1, TimeUnit.DAYS);
+            }
         } catch (InterruptedException ex) {
             // ignore
         }

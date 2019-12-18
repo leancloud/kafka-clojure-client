@@ -1,9 +1,6 @@
 package cn.leancloud.kafka.client.integration;
 
 import cn.leancloud.kafka.client.consumer.BackPressureClient;
-import cn.leancloud.kafka.client.consumer.NamedThreadFactory;
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
@@ -15,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 public class SyncCommitIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(SyncCommitIntegrationTest.class);
@@ -45,15 +41,11 @@ public class SyncCommitIntegrationTest {
         configs.put("bootstrap.servers", "localhost:9092");
         configs.put("auto.offset.reset", "earliest");
         configs.put("group.id", "2614911922612339122");
-
-        Consumer<Integer, String> consumer = new KafkaConsumer<Integer, String>(
-                configs,
-                new IntegerDeserializer(),
-                new StringDeserializer());
+        configs.put("key.deserializer", IntegerDeserializer.class.getName());
+        configs.put("value.deserializer", StringDeserializer.class.getName());
 
         BackPressureClient<Integer, String> client = new BackPressureClient<>(
-                consumer,
-                Executors.newCachedThreadPool(new NamedThreadFactory("consumer", true)),
+                configs,
                 100,
                 (topic, value) -> {
                     logger.info("receive msg from {} with value: {}", topic, value);
