@@ -49,7 +49,12 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         }
 
         consumer.commitSync(completedTopicOffsets);
-        return clearCompletedTopics();
+        final Set<TopicPartition> partitions = checkCompletedPartitions();
+        completedTopicOffsets.clear();
+        for (TopicPartition p : partitions) {
+            topicOffsetHighWaterMark.remove(p);
+        }
+        return partitions;
     }
 
     @Override
@@ -75,16 +80,13 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         }
     }
 
-    private Set<TopicPartition> clearCompletedTopics() {
-        final Set<TopicPartition> completedTopics = completedTopicOffsets
+    private Set<TopicPartition> checkCompletedPartitions() {
+        return completedTopicOffsets
                 .entrySet()
                 .stream()
                 .filter(entry -> topicOffsetMeetHighWaterMark(entry.getKey(), entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(toSet());
-
-        completedTopicOffsets.clear();
-        return completedTopics;
     }
 
     private boolean topicOffsetMeetHighWaterMark(TopicPartition topicPartition, OffsetAndMetadata offset) {

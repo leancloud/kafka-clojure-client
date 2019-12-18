@@ -14,7 +14,7 @@ public class AsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final Consumer<K, V> consumer;
-    private final Set<TopicPartition> completeTopicPartitions;
+    private final Set<TopicPartition> completePartitions;
     private final int maxConsecutiveAsyncCommits;
     private int consecutiveAsyncCommitCounter;
     private boolean forceSync;
@@ -23,19 +23,20 @@ public class AsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
         this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
-        this.completeTopicPartitions = new HashSet<>();
+        this.completePartitions = new HashSet<>();
     }
 
     @Override
     public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
         pendingFutures.put(record, future);
+
     }
 
     @Override
     public void completeRecord(ConsumerRecord<K, V> record) {
         final Future<ConsumerRecord<K, V>> v = pendingFutures.remove(record);
         assert v != null;
-        completeTopicPartitions.add(new TopicPartition(record.topic(), record.partition()));
+        completePartitions.add(new TopicPartition(record.topic(), record.partition()));
     }
 
     @Override
@@ -48,9 +49,6 @@ public class AsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
             consumer.commitSync();
             consecutiveAsyncCommitCounter = 0;
             forceSync = false;
-            final HashSet<TopicPartition> ps = new HashSet<>(completeTopicPartitions);
-            completeTopicPartitions.clear();
-            return ps;
         } else {
             consumer.commitAsync((offsets, exception) -> {
                 if (exception != null) {
@@ -60,7 +58,10 @@ public class AsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
             });
             ++consecutiveAsyncCommitCounter;
         }
-        return completeTopicPartitions;
+
+        final Set<TopicPartition> partitions = new HashSet<>(completePartitions);
+        completePartitions.clear();
+        return partitions;
     }
 
     @Override
@@ -79,7 +80,7 @@ public class AsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         }
 
         pendingFutures.clear();
-        completeTopicPartitions.clear();
+        completePartitions.clear();
     }
 
     @Override

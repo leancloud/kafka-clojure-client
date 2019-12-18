@@ -3,8 +3,9 @@ package cn.leancloud.kafka.client.consumer;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.Future;
@@ -12,6 +13,8 @@ import java.util.concurrent.Future;
 import static java.util.stream.Collectors.toSet;
 
 public class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+    private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
+
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final Consumer<K, V> consumer;
     private final Map<TopicPartition, Long> topicOffsetHighWaterMark;
@@ -55,15 +58,29 @@ public class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
         if (forceSync || consecutiveAsyncCommitCounter >= maxConsecutiveAsyncCommits) {
             consumer.commitSync(completedTopicOffsets);
-            return clearCompletedTopics();
+            consecutiveAsyncCommitCounter = 0;
+            forceSync = false;
+            final Set<TopicPartition> partitions = checkCompletedPartitions();
+            completedTopicOffsets.clear();
+            for (TopicPartition p : partitions) {
+                topicOffsetHighWaterMark.remove(p);
+            }
+            return partitions;
         } else {
-            consumer.commitAsync(completedTopicOffsets, new OffsetCommitCallback() {
-                @Override
-                public void onComplete(Map<TopicPartition, OffsetAndMetadata> offsets, Exception exception) {
+            consumer.commitAsync(completedTopicOffsets, (offsets, exception) -> {
+                for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
+                    completedTopicOffsets.remove(entry.getKey(), entry.getValue());
+                    topicOffsetHighWaterMark.remove(entry.getKey(), entry.getValue().offset());
+                }
 
+                if (exception != null) {
+                    logger.warn("Failed to commit offset: " + offsets + " asynchronously", exception);
+                    forceSync = true;
                 }
             });
-            return clearCompletedTopics();
+            ++consecutiveAsyncCommitCounter;
+
+            return checkCompletedPartitions();
         }
     }
 
@@ -90,16 +107,13 @@ public class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         }
     }
 
-    private Set<TopicPartition> clearCompletedTopics() {
-        final Set<TopicPartition> completedTopics = completedTopicOffsets
+    private Set<TopicPartition> checkCompletedPartitions() {
+        return completedTopicOffsets
                 .entrySet()
                 .stream()
                 .filter(entry -> topicOffsetMeetHighWaterMark(entry.getKey(), entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(toSet());
-
-        completedTopicOffsets.clear();
-        return completedTopics;
     }
 
     private boolean topicOffsetMeetHighWaterMark(TopicPartition topicPartition, OffsetAndMetadata offset) {
