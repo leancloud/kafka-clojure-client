@@ -21,6 +21,10 @@ abstract class AbstractLKafkaConsumer implements LKafkaConsumer {
 
     private volatile State state;
 
+    AbstractLKafkaConsumer() {
+        this.state = State.INIT;
+    }
+
     public synchronized void subscribe(Collection<String> topics) {
         if (topics.isEmpty()) {
             throw new IllegalArgumentException("empty topics");
