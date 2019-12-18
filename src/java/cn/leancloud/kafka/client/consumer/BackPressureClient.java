@@ -7,6 +7,9 @@ import java.io.Closeable;
 import java.util.Collection;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.joining;
 
 public class BackPressureClient<K, V> implements Closeable {
     private enum State {
@@ -47,12 +50,18 @@ public class BackPressureClient<K, V> implements Closeable {
     }
 
     public synchronized void subscribe(Collection<String> topics) {
+        if (topics.isEmpty()) {
+            throw new IllegalArgumentException("empty topics");
+        }
+
         if (subscribed() || closed()) {
             throw new IllegalStateException("client is in " + state + " state. expect: " + State.INIT);
         }
 
         consumer.subscribe(topics, new RebalanceListener<>(fetcher, policy));
 
+        final String firstTopic = topics.iterator().next();
+        fetcherThread.setName("kafka-fetcher-for-" + firstTopic + (topics.size() > 1 ? "..." : ""));
         fetcherThread.start();
         state = State.SUBSCRIBED;
     }
