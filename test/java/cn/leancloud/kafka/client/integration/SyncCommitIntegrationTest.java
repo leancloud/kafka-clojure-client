@@ -33,6 +33,8 @@ public class SyncCommitIntegrationTest {
         configs.put("bootstrap.servers", "localhost:9092");
         configs.put("auto.offset.reset", "earliest");
         configs.put("group.id", "2614911922612339122");
+        configs.put("max.poll.records", 2);
+        configs.put("max.poll.interval.ms", "5000");
         configs.put("key.deserializer", IntegerDeserializer.class.getName());
         configs.put("value.deserializer", StringDeserializer.class.getName());
 

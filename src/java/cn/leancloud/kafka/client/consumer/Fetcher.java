@@ -48,17 +48,12 @@ final class Fetcher<K, V> implements Runnable, Closeable {
                     logger.debug("Fetched " + records.count() + " records from: " + records.partitions());
                 }
 
+                dispatchFetchedRecords(records);
+                processCompletedRecords();
+
                 if (!records.isEmpty()) {
-                    dispatchFetchedRecords(records);
-
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Pause partitions: " + records.partitions());
-                    }
-
                     consumer.pause(records.partitions());
                 }
-
-                processCompletedRecords();
 
                 tryCommitRecordOffsets();
             } catch (WakeupException ex) {
@@ -108,7 +103,8 @@ final class Fetcher<K, V> implements Runnable, Closeable {
 
     private void tryCommitRecordOffsets() {
         final Set<TopicPartition> partitions = policy.tryCommit();
-        logger.debug("Resume partitions: {}", partitions);
-        consumer.resume(partitions);
+        if (!partitions.isEmpty()) {
+            consumer.resume(partitions);
+        }
     }
 }
