@@ -9,9 +9,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.LongAdder;
 
 public class SyncCommitIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(SyncCommitIntegrationTest.class);
@@ -26,17 +28,7 @@ public class SyncCommitIntegrationTest {
         this.topic = "Testing";
     }
 
-    void run() {
-        for (int i = 0; i < 1000; ++i) {
-            ProducerRecord<Integer, String> record = new ProducerRecord<>(topic, i, "" + i);
-            producer.send(record, new Callback() {
-                @Override
-                public void onCompletion(RecordMetadata metadata, Exception exception) {
-                    logger.info("producer callback {} {}", metadata, exception);
-                }
-            });
-        }
-
+    void run() throws Exception {
         Map<String, Object> configs = new HashMap<>();
         configs.put("bootstrap.servers", "localhost:9092");
         configs.put("auto.offset.reset", "earliest");
@@ -44,24 +36,32 @@ public class SyncCommitIntegrationTest {
         configs.put("key.deserializer", IntegerDeserializer.class.getName());
         configs.put("value.deserializer", StringDeserializer.class.getName());
 
+        LongAdder adder = new LongAdder();
         BackPressureClient<Integer, String> client = new BackPressureClient<>(
                 configs,
                 100,
                 (topic, value) -> {
                     logger.info("receive msg from {} with value: {}", topic, value);
+                    adder.increment();
                 }
         );
 
         client.subscribe(Collections.singletonList(topic));
+
+
+        TestingProducer producer = new TestingProducer(topic, Duration.ofMillis(100), 4, Duration.ofSeconds(10));
+
         try {
-            Thread.sleep(100000);
+            Thread.sleep(10000);
         } catch (Exception ex) {
 
         }
+        System.out.println(producer.sent());
+        System.out.println(adder.sumThenReset());
     }
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         SyncCommitIntegrationTest test = new SyncCommitIntegrationTest();
         test.run();
     }
