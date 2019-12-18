@@ -43,6 +43,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     @Override
     public void run() {
         logger.debug("Fetcher thread started.");
+        final long pollTimeout = this.pollTimeout;
         final Consumer<K, V> consumer = this.consumer;
         while (true) {
             try {
@@ -71,13 +72,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
             }
         }
 
-        policy.beforeClose(pendingFutures);
-        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
-            future.cancel(false);
-        }
-
-        pendingFutures.clear();
-        logger.debug("Fetcher thread exit.");
+        gracefulShutdown();
     }
 
     @Override
@@ -122,5 +117,15 @@ final class Fetcher<K, V> implements Runnable, Closeable {
         if (!partitions.isEmpty()) {
             consumer.resume(partitions);
         }
+    }
+
+    private void gracefulShutdown() {
+        policy.beforeClose(pendingFutures);
+        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
+            future.cancel(false);
+        }
+
+        pendingFutures.clear();
+        logger.debug("Fetcher thread exit.");
     }
 }

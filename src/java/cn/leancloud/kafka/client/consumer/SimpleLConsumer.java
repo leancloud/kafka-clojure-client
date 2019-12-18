@@ -4,38 +4,19 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
-import java.io.Closeable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorCompletionService;
 
-public final class SimpleClient<K, V> implements Closeable {
-    private enum State {
-        INIT(0),
-        SUBSCRIBED(1),
-        CLOSED(2);
-
-        private int code;
-
-        State(int code) {
-            this.code = code;
-        }
-
-        int code() {
-            return code;
-        }
-    }
-
+public final class SimpleLConsumer<K, V> extends AbstractLKafkaConsumer {
     private final Consumer<K, V> consumer;
     private final Thread fetcherThread;
     private final Fetcher<K, V> fetcher;
     private final CommitPolicy<K, V> policy;
-    private volatile State state;
 
-    private SimpleClient(Map<String, Object> consumerConfigs,
-                         long pollTimeout,
-                         MsgHandler<V> handler) {
-        this.state = State.INIT;
+    public SimpleLConsumer(Map<String, Object> consumerConfigs,
+                           long pollTimeout,
+                           MsgHandler<V> handler) {
         this.consumer = new KafkaConsumer<>(consumerConfigs);
 
         final ExecutorCompletionService<ConsumerRecord<K, V>> service =
@@ -45,37 +26,17 @@ public final class SimpleClient<K, V> implements Closeable {
         this.fetcherThread = new Thread(fetcher);
     }
 
-    public synchronized void subscribe(Collection<String> topics) {
-        if (topics.isEmpty()) {
-            throw new IllegalArgumentException("empty topics");
-        }
-
-        if (subscribed() || closed()) {
-            throw new IllegalStateException("client is in " + state + " state. expect: " + State.INIT);
-        }
-
+    @Override
+    public void doSubscribe(Collection<String> topics) {
         consumer.subscribe(topics, new RebalanceListener<>(fetcher, policy));
 
         final String firstTopic = topics.iterator().next();
         fetcherThread.setName("kafka-fetcher-for-" + firstTopic + (topics.size() > 1 ? "..." : ""));
         fetcherThread.start();
-        state = State.SUBSCRIBED;
     }
 
     @Override
-    public void close() {
-        if (closed()) {
-            return;
-        }
-
-        synchronized (this) {
-            if (closed()) {
-                return;
-            }
-
-            state = State.CLOSED;
-        }
-
+    public void doClose() {
         fetcher.close();
         try {
             fetcherThread.join();
@@ -83,13 +44,5 @@ public final class SimpleClient<K, V> implements Closeable {
         } catch (InterruptedException ex) {
             // ignore
         }
-    }
-
-    private boolean subscribed() {
-        return state.code() > State.INIT.code();
-    }
-
-    private boolean closed() {
-        return state == State.CLOSED;
     }
 }

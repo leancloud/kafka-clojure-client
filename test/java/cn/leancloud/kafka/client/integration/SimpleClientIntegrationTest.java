@@ -1,7 +1,8 @@
 package cn.leancloud.kafka.client.integration;
 
-import cn.leancloud.kafka.client.consumer.ComplexLConsumer;
-import org.apache.kafka.clients.producer.*;
+import cn.leancloud.kafka.client.consumer.SimpleLConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -15,12 +16,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 
-public class SyncCommitIntegrationTest {
-    private static final Logger logger = LoggerFactory.getLogger(SyncCommitIntegrationTest.class);
+public class SimpleClientIntegrationTest {
+    private static final Logger logger = LoggerFactory.getLogger(SimpleClientIntegrationTest.class);
     private String topic;
     private Producer<Integer, String> producer;
 
-    public SyncCommitIntegrationTest() {
+    public SimpleClientIntegrationTest() {
         Map<String, Object> configs = new HashMap<>();
         configs.put("bootstrap.servers", "localhost:9092");
         this.producer = new KafkaProducer<>(configs, new IntegerSerializer(), new StringSerializer());
@@ -35,11 +36,12 @@ public class SyncCommitIntegrationTest {
         configs.put("group.id", "2614911922612339122");
         configs.put("max.poll.records", 2);
         configs.put("max.poll.interval.ms", "5000");
+        configs.put("enable.auto.commit", "true");
         configs.put("key.deserializer", IntegerDeserializer.class.getName());
         configs.put("value.deserializer", StringDeserializer.class.getName());
 
         LongAdder adder = new LongAdder();
-        ComplexLConsumer<Integer, String> client = new ComplexLConsumer<>(
+        SimpleLConsumer<Integer, String> client = new SimpleLConsumer<>(
                 configs,
                 100,
                 (topic, value) -> {
@@ -64,7 +66,7 @@ public class SyncCommitIntegrationTest {
 
 
     public static void main(String[] args) throws Exception {
-        SyncCommitIntegrationTest test = new SyncCommitIntegrationTest();
+        SimpleClientIntegrationTest test = new SimpleClientIntegrationTest();
         test.run();
     }
 }
