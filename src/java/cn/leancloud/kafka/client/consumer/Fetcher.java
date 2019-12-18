@@ -9,8 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -22,7 +20,6 @@ class Fetcher<K, V> implements Runnable, Closeable {
     private final long pollTimeout;
     private final Consumer<K, V> consumer;
     private final MsgHandler<V> handler;
-    private final Set<TopicPartition> pausedPartitions;
     private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
     private volatile boolean closed;
     private CommitPolicy<K, V> policy;
@@ -36,19 +33,29 @@ class Fetcher<K, V> implements Runnable, Closeable {
         this.pollTimeout = pollTimeout;
         this.handler = handler;
         this.service = service;
-        this.pausedPartitions = new HashSet<>();
         this.policy = policy;
     }
 
     @Override
     public void run() {
+        logger.debug("Fetcher thread started.");
         final Consumer<K, V> consumer = this.consumer;
         while (true) {
             try {
                 final ConsumerRecords<K, V> records = consumer.poll(pollTimeout);
+
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Fetched " + records.count() + " records from: " + records.partitions());
+                }
+
                 if (!records.isEmpty()) {
                     dispatchFetchedRecords(records);
-                    consumer.pause(pausedPartitions);
+
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Pause partitions: " + records.partitions());
+                    }
+
+                    consumer.pause(records.partitions());
                 }
 
                 processCompletedRecords();
@@ -66,6 +73,7 @@ class Fetcher<K, V> implements Runnable, Closeable {
         }
 
         policy.beforeClose();
+        logger.debug("Fetcher thread exit.");
     }
 
     @Override
@@ -78,16 +86,9 @@ class Fetcher<K, V> implements Runnable, Closeable {
         return closed;
     }
 
-    void removePausedPartitions(Collection<TopicPartition> partitions) {
-        pausedPartitions.removeAll(partitions);
-    }
-
     private void dispatchFetchedRecords(ConsumerRecords<K, V> records) {
         final MsgHandler<V> handler = this.handler;
         for (ConsumerRecord<K, V> record : records) {
-            final TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
-            pausedPartitions.add(topicPartition);
-
             final Future<ConsumerRecord<K, V>> future = service.submit(() -> {
                 handler.handleMessage(record.topic(), record.value());
                 return record;
@@ -107,7 +108,7 @@ class Fetcher<K, V> implements Runnable, Closeable {
 
     private void tryCommitRecordOffsets() {
         final Set<TopicPartition> partitions = policy.tryCommit();
+        logger.debug("Resume partitions: {}", partitions);
         consumer.resume(partitions);
-        pausedPartitions.removeAll(partitions);
     }
 }

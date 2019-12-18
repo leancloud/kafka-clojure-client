@@ -22,7 +22,6 @@ public class RebalanceListener<K, V> implements ConsumerRebalanceListener {
     public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
         logger.info("Partitions was revoked {}", partitions);
 
-        fetcher.removePausedPartitions(partitions);
         policy.onPartitionRevoked();
     }
 
