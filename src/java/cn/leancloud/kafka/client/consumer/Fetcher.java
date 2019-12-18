@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -21,6 +23,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     private final Consumer<K, V> consumer;
     private final MsgHandler<V> handler;
     private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
+    private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private volatile boolean closed;
     private CommitPolicy<K, V> policy;
 
@@ -29,6 +32,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
             MsgHandler<V> handler,
             ExecutorCompletionService<ConsumerRecord<K, V>> service,
             CommitPolicy<K, V> policy) {
+        this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
         this.pollTimeout = pollTimeout;
         this.handler = handler;
@@ -51,7 +55,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
                 dispatchFetchedRecords(records);
                 processCompletedRecords();
 
-                if (!records.isEmpty()) {
+                if (!pendingFutures.isEmpty() && !records.isEmpty()) {
                     consumer.pause(records.partitions());
                 }
 
@@ -67,7 +71,12 @@ final class Fetcher<K, V> implements Runnable, Closeable {
             }
         }
 
-        policy.beforeClose();
+        policy.beforeClose(pendingFutures);
+        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
+            future.cancel(false);
+        }
+
+        pendingFutures.clear();
         logger.debug("Fetcher thread exit.");
     }
 
@@ -75,6 +84,10 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     public void close() {
         closed = true;
         consumer.wakeup();
+    }
+
+    Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures() {
+        return pendingFutures;
     }
 
     private boolean closed() {
@@ -88,6 +101,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
                 handler.handleMessage(record.topic(), record.value());
                 return record;
             });
+            pendingFutures.put(record, future);
             policy.addPendingRecord(record, future);
         }
     }
@@ -97,12 +111,14 @@ final class Fetcher<K, V> implements Runnable, Closeable {
         while ((f = service.poll()) != null) {
             assert f.isDone();
             final ConsumerRecord<K, V> r = f.get();
+            final Future<ConsumerRecord<K, V>> v = pendingFutures.remove(r);
+            assert v != null;
             policy.completeRecord(r);
         }
     }
 
     private void tryCommitRecordOffsets() {
-        final Set<TopicPartition> partitions = policy.tryCommit();
+        final Set<TopicPartition> partitions = policy.tryCommit(pendingFutures);
         if (!partitions.isEmpty()) {
             consumer.resume(partitions);
         }

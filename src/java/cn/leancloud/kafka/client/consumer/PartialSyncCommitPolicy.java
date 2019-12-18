@@ -11,13 +11,11 @@ import java.util.concurrent.Future;
 import static java.util.stream.Collectors.toSet;
 
 public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
-    private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final Consumer<K, V> consumer;
     private final Map<TopicPartition, Long> topicOffsetHighWaterMark;
     private final Map<TopicPartition, OffsetAndMetadata> completedTopicOffsets;
 
     public PartialSyncCommitPolicy(Consumer<K, V> consumer) {
-        this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
         this.topicOffsetHighWaterMark = new HashMap<>();
         this.completedTopicOffsets = new HashMap<>();
@@ -25,7 +23,6 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
     @Override
     public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
-        pendingFutures.put(record, future);
         topicOffsetHighWaterMark.merge(
                 new TopicPartition(record.topic(), record.partition()),
                 record.offset() + 1,
@@ -34,8 +31,6 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
 
     @Override
     public void completeRecord(ConsumerRecord<K, V> record) {
-        final Future<ConsumerRecord<K, V>> v = pendingFutures.remove(record);
-        assert v != null;
         completedTopicOffsets.merge(
                 new TopicPartition(record.topic(), record.partition()),
                 new OffsetAndMetadata(record.offset() + 1L),
@@ -43,7 +38,7 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     }
 
     @Override
-    public Set<TopicPartition> tryCommit() {
+    public Set<TopicPartition> tryCommit(Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures) {
         if (completedTopicOffsets.isEmpty()) {
             return Collections.emptySet();
         }
@@ -58,18 +53,14 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     }
 
     @Override
-    public void beforeClose() {
-        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
-            future.cancel(false);
-        }
+    public void beforeClose(Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures) {
         consumer.commitSync(completedTopicOffsets);
-        pendingFutures.clear();
         completedTopicOffsets.clear();
         topicOffsetHighWaterMark.clear();
     }
 
     @Override
-    public void onPartitionRevoked(Collection<TopicPartition> partitions) {
+    public void onPartitionRevoked(Collection<TopicPartition> partitions, Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures) {
         // the offset out of revoked partitions will be committed twice
         // but I think it's OK
         consumer.commitSync(completedTopicOffsets);
