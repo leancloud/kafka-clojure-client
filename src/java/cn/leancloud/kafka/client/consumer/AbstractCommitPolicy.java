@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 
-public abstract class AbstractCommitPolicy<K,V> implements CommitPolicy<K,V> {
+abstract class AbstractCommitPolicy<K,V> implements CommitPolicy<K,V> {
     @Override
     public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
 

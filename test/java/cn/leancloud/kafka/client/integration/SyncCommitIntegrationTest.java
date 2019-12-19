@@ -1,11 +1,9 @@
 package cn.leancloud.kafka.client.integration;
 
-import cn.leancloud.kafka.client.consumer.ComplexLConsumer;
-import org.apache.kafka.clients.producer.*;
+import cn.leancloud.kafka.client.consumer.LcKafkaConsumer;
+import cn.leancloud.kafka.client.consumer.LcKafkaConsumerBuilder;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
-import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,13 +16,8 @@ import java.util.concurrent.atomic.LongAdder;
 public class SyncCommitIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(SyncCommitIntegrationTest.class);
     private String topic;
-    private Producer<Integer, String> producer;
 
     public SyncCommitIntegrationTest() {
-        Map<String, Object> configs = new HashMap<>();
-        configs.put("bootstrap.servers", "localhost:9092");
-        this.producer = new KafkaProducer<>(configs, new IntegerSerializer(), new StringSerializer());
-        ;
         this.topic = "Testing";
     }
 
@@ -39,19 +32,17 @@ public class SyncCommitIntegrationTest {
         configs.put("value.deserializer", StringDeserializer.class.getName());
 
         LongAdder adder = new LongAdder();
-        ComplexLConsumer<Integer, String> client = new ComplexLConsumer<>(
-                configs,
-                100,
-                (topic, value) -> {
+        LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(configs)
+                .messageHandler((topic, value) -> {
                     logger.info("receive msg from {} with value: {}", topic, value);
                     adder.increment();
-                }
-        );
+                })
+                .buildSync();
 
         client.subscribe(Collections.singletonList(topic));
 
 
-        TestingProducer producer = new TestingProducer(topic, Duration.ofMillis(100), 4, Duration.ofSeconds(10));
+        TestingProducer producer = new TestingProducer(topic, Duration.ofMillis(100), 4, Duration.ofSeconds(9));
 
         try {
             Thread.sleep(10000);

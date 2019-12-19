@@ -12,12 +12,12 @@ import static java.util.Comparator.comparing;
 import static java.util.function.BinaryOperator.maxBy;
 import static java.util.stream.Collectors.toSet;
 
-public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private final Consumer<K, V> consumer;
     private final Map<TopicPartition, Long> topicOffsetHighWaterMark;
     private final Map<TopicPartition, OffsetAndMetadata> completedTopicOffsets;
 
-    public PartialSyncCommitPolicy(Consumer<K, V> consumer) {
+    PartialSyncCommitPolicy(Consumer<K, V> consumer) {
         this.consumer = consumer;
         this.topicOffsetHighWaterMark = new HashMap<>();
         this.completedTopicOffsets = new HashMap<>();

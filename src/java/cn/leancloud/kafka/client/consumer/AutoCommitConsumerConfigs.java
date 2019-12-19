@@ -1,0 +1,38 @@
+package cn.leancloud.kafka.client.consumer;
+
+enum AutoCommitConsumerConfigs implements KafkaConfigsChecker {
+    MAX_POLL_INTERVAL_MS("max.poll.interval.ms"),
+    MAX_POLL_RECORDS("max.poll.records"),
+    AUTO_COMMIT_INTERVAL_MS("auto.commit.interval.ms");
+
+    private String config;
+    private String expectedValue;
+    private boolean required;
+
+    AutoCommitConsumerConfigs(String config) {
+        this.config = config;
+        this.expectedValue = null;
+        this.required = false;
+    }
+
+    AutoCommitConsumerConfigs(String config, String expectedValue, boolean required) {
+        this.config = config;
+        this.expectedValue = expectedValue;
+        this.required = required;
+    }
+
+    @Override
+    public String configName() {
+        return config;
+    }
+
+    @Override
+    public String expectedValue() {
+        return expectedValue;
+    }
+
+    @Override
+    public boolean required() {
+        return required;
+    }
+}

@@ -1,6 +1,7 @@
 package cn.leancloud.kafka.client.integration;
 
-import cn.leancloud.kafka.client.consumer.SimpleLConsumer;
+import cn.leancloud.kafka.client.consumer.LcKafkaConsumer;
+import cn.leancloud.kafka.client.consumer.LcKafkaConsumerBuilder;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
@@ -41,14 +42,14 @@ public class SimpleClientIntegrationTest {
         configs.put("value.deserializer", StringDeserializer.class.getName());
 
         LongAdder adder = new LongAdder();
-        SimpleLConsumer<Integer, String> client = new SimpleLConsumer<>(
-                configs,
-                100,
-                (topic, value) -> {
+
+
+        LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(configs)
+                .messageHandler((topic, value) -> {
                     logger.info("receive msg from {} with value: {}", topic, value);
                     adder.increment();
-                }
-        );
+                })
+                .buildAuto();
 
         client.subscribe(Collections.singletonList(topic));
 

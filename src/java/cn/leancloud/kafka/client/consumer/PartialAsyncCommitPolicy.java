@@ -14,7 +14,7 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toSet;
 import static java.util.function.BinaryOperator.maxBy;
 
-public final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
+final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
 
     private final Consumer<K, V> consumer;
@@ -24,7 +24,7 @@ public final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> 
     private int consecutiveAsyncCommitCounter;
     private boolean forceSync;
 
-    public PartialAsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
+    PartialAsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
         this.consumer = consumer;
         this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
         this.topicOffsetHighWaterMark = new HashMap<>();

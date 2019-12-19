@@ -2,8 +2,8 @@ package cn.leancloud.kafka.client.consumer;
 
 import java.util.concurrent.Executor;
 
-public final class ImmediateExecutor implements Executor {
-    public static final ImmediateExecutor INSTANCE = new ImmediateExecutor();
+final class ImmediateExecutor implements Executor {
+    static final ImmediateExecutor INSTANCE = new ImmediateExecutor();
 
     private ImmediateExecutor() {
     }

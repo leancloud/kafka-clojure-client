@@ -1,0 +1,25 @@
+package cn.leancloud.kafka.client.consumer;
+
+import java.util.Map;
+
+public interface KafkaConfigsChecker {
+    default void check(Map<String, Object> configs) {
+        Object val = configs.get(configName());
+
+        if (val == null) {
+            if (required()) {
+                throw new IllegalArgumentException("expect \"" + configName() + "\" in kafka configs");
+            }
+        } else {
+            if (expectedValue() != null && !val.equals(expectedValue())) {
+                throw new IllegalArgumentException("kafka configs \"" + configName() + "\":" + val + ". (expect = " + expectedValue() + ")");
+            }
+        }
+    }
+
+    String configName();
+
+    String expectedValue();
+
+    boolean required();
+}

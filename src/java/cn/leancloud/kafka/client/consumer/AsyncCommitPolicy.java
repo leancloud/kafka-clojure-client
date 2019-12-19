@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.Future;
 
-public final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
+final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(AsyncCommitPolicy.class);
 
     private final Consumer<K, V> consumer;
@@ -18,7 +18,7 @@ public final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private int consecutiveAsyncCommitCounter;
     private boolean forceSync;
 
-    public AsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
+    AsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
         this.consumer = consumer;
         this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
         this.completePartitions = new HashSet<>();

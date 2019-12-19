@@ -11,7 +11,7 @@ public final class SyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private final Consumer<K, V> consumer;
     private final Set<TopicPartition> completeTopicPartitions;
 
-    public SyncCommitPolicy(Consumer<K, V> consumer) {
+    SyncCommitPolicy(Consumer<K, V> consumer) {
         this.consumer = consumer;
         this.completeTopicPartitions = new HashSet<>();
     }

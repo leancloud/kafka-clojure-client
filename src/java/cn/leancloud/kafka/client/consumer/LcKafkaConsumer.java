@@ -1,16 +1,13 @@
 package cn.leancloud.kafka.client.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.io.Closeable;
 import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
-public class LcKafkaConsumer<K, V> implements Closeable {
-    private static final ThreadFactory threadFactory = new NamedThreadFactory("back-pressure-task-worker-pool");
+public final class LcKafkaConsumer<K, V> implements Closeable {
     enum State {
         INIT(0),
         SUBSCRIBED(1),
@@ -35,23 +32,18 @@ public class LcKafkaConsumer<K, V> implements Closeable {
     private final boolean shutdownWorkerPoolOnStop;
     private volatile State state;
 
-    LcKafkaConsumer(Map<String, Object> consumerConfigs,
-                    long pollTimeout,
-                    MsgHandler<V> handler,
-                    ExecutorService workerPool,
-                    boolean shutdownWorkerPoolOnStop) {
+    LcKafkaConsumer(LcKafkaConsumerBuilder<K, V> builder) {
         this.state = State.INIT;
-        this.consumer = new KafkaConsumer<>(consumerConfigs);
-        if (workerPool == null) {
-            workerPool = Executors.newCachedThreadPool(threadFactory);
-        }
-
-        this.workerPool = workerPool;
-        this.shutdownWorkerPoolOnStop = shutdownWorkerPoolOnStop;
-
-        final ExecutorCompletionService<ConsumerRecord<K, V>> service = new ExecutorCompletionService<>(workerPool);
-        this.policy = new SyncCommitPolicy<>(consumer);
-        this.fetcher = new Fetcher<>(consumer, pollTimeout, handler, service, policy);
+        this.consumer = builder.getConsumer();
+        this.workerPool = builder.getWorkerPool();
+        this.shutdownWorkerPoolOnStop = builder.isShutdownWorkerPoolOnStop();
+        this.policy = builder.getPolicy();
+        this.fetcher = new Fetcher<>(
+                consumer,
+                builder.getPollTimeout(),
+                builder.getMessageHandler(),
+                builder.getCompletionWorkerService(),
+                policy);
         this.fetcherThread = new Thread(fetcher);
     }
 
