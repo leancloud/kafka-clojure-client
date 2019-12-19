@@ -1,4 +1,4 @@
-(defproject leancloud-kafka-client "0.1.0-SNAPSHOT"
+(defproject leancloud-kafka-client "0.0.1"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -19,6 +19,6 @@
   :jvm-opts ["-Dclojure.compiler.elide-meta='[:doc :added]'"]
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.apache.kafka/kafka-clients "1.1.1"]]
-  :repositories [["github" {:url   "https://maven.pkg.github.com/leancloud/leancloud-queues"
+  :repositories [["github" {:url   "https://maven.pkg.github.com/leancloud/leancloud-kafka-client"
                             :creds :gpg}]]
   )
