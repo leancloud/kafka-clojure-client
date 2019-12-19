@@ -1,5 +1,6 @@
 package cn.leancloud.kafka.client.consumer;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 
 public interface KafkaConfigsChecker {
@@ -19,6 +20,7 @@ public interface KafkaConfigsChecker {
 
     String configName();
 
+    @Nullable
     String expectedValue();
 
     boolean required();

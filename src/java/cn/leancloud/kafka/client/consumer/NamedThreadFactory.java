@@ -27,11 +27,11 @@ final class NamedThreadFactory implements ThreadFactory {
     private final AtomicInteger counter = new AtomicInteger(0);
     private final boolean       daemon;
 
-    public NamedThreadFactory(String prefix) {
+    NamedThreadFactory(String prefix) {
         this(prefix, false);
     }
 
-    public NamedThreadFactory(String prefix, boolean daemon) {
+    NamedThreadFactory(String prefix, boolean daemon) {
         super();
         this.prefix = prefix;
         this.daemon = daemon;

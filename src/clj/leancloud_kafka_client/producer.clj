@@ -5,23 +5,6 @@
            (org.apache.kafka.common.serialization Serializer StringSerializer)
            (java.util Map)))
 
-#_(defrecord KafkaBasedProducer [producer msg-encoder]
-  Producer
-  (enqueue [this queue-name msg]
-    (enqueue this queue-name nil msg))
-  (enqueue [this queue-name meta msg]
-    (let [{:keys [partition key]} meta]
-      (send producer (record queue-name partition key (msg-encoder msg)))))
-  (close-producer [this]
-    (.close ^KafkaProducer producer)))
-
-#_(defn create-kafka-producer [producer-configs opts]
-  (let [{:keys [key-serializer value-serializer msg-encoder]
-         :or   {key-serializer   (StringSerializer.)
-                value-serializer (StringSerializer.)
-                msg-encoder      json/write-str}} opts]
-    (KafkaBasedProducer. (producer producer-configs key-serializer value-serializer) msg-encoder)))
-
 (defn ^Producer create-kafka-producer
   ([configs] (create-kafka-producer configs (StringSerializer.) (StringSerializer.)))
   ([^Map configs ^Serializer key-serializer ^Serializer value-serializer]

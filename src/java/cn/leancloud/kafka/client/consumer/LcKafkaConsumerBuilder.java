@@ -5,6 +5,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.Deserializer;
 
+import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ExecutorCompletionService;
@@ -17,14 +18,16 @@ import static java.util.Objects.requireNonNull;
 public final class LcKafkaConsumerBuilder<K, V> {
     private static final ThreadFactory threadFactory = new NamedThreadFactory("lc-kafka-consumer-task-worker-pool");
 
-    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> configs) {
-        return new LcKafkaConsumerBuilder<>(configs);
+    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> configs,
+                                                                    MessageHandler<Object> messageHandler) {
+        return new LcKafkaConsumerBuilder<>(configs, messageHandler);
     }
 
     public static LcKafkaConsumerBuilder<?, ?> newBuilder(Map<String, Object> configs,
+                                                          MessageHandler<Object> messageHandler,
                                                           Deserializer<?> keyDeserializer,
-                                                          Deserializer<?> valueDeserializer) {
-        return new LcKafkaConsumerBuilder<>(configs, keyDeserializer, valueDeserializer);
+                                                          Deserializer<Object> valueDeserializer) {
+        return new LcKafkaConsumerBuilder<>(configs, messageHandler, keyDeserializer, valueDeserializer);
     }
 
     /**
@@ -36,31 +39,43 @@ public final class LcKafkaConsumerBuilder<K, V> {
         }
     }
 
-    private Consumer<K, V> consumer;
-    private Map<String, Object> configs;
-    private Deserializer<K> keyDeserializer;
-    private Deserializer<V> valueDeserializer;
-    private CommitPolicy<K, V> policy;
-    private MessageHandler<V> handler;
-    private ExecutorService workerPool;
-    private ExecutorCompletionService<ConsumerRecord<K, V>> completionWorkerService;
-    private boolean shutdownWorkerPoolOnStop;
     private long pollTimeout = 100;
     private int maxConsecutiveAsyncCommits = 10;
+    private Map<String, Object> configs;
+    private MessageHandler<V> messageHandler;
+    @Nullable
+    private Consumer<K, V> consumer;
+    @Nullable
+    private Deserializer<K> keyDeserializer;
+    @Nullable
+    private Deserializer<V> valueDeserializer;
+    @Nullable
+    private CommitPolicy<K, V> policy;
+    @Nullable
+    private ExecutorService workerPool;
+    @Nullable
+    private ExecutorCompletionService<ConsumerRecord<K, V>> completionWorkerService;
+    private boolean shutdownWorkerPoolOnStop;
 
-    private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs) {
+    private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
+                                   MessageHandler<V> messageHandler) {
         requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
+        requireNonNull(messageHandler, "messageHandler");
         this.configs = kafkaConsumerConfigs;
+        this.messageHandler = messageHandler;
     }
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
+                                   MessageHandler<V> messageHandler,
                                    Deserializer<K> keyDeserializer,
                                    Deserializer<V> valueDeserializer) {
         requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
+        requireNonNull(messageHandler, "messageHandler");
         requireNonNull(keyDeserializer, "keyDeserializer");
         requireNonNull(valueDeserializer, "valueDeserializer");
 
         this.configs = kafkaConsumerConfigs;
+        this.messageHandler = messageHandler;
         this.keyDeserializer = keyDeserializer;
         this.valueDeserializer = valueDeserializer;
     }
@@ -86,7 +101,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     public LcKafkaConsumerBuilder<K, V> messageHandler(MessageHandler<V> msgHandler) {
         requireNonNull(msgHandler, "msgHandler");
-        this.handler = msgHandler;
+        this.messageHandler = msgHandler;
         return this;
     }
 
@@ -99,8 +114,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildAuto() {
         checkConfigs(AutoCommitConsumerConfigs.values());
-        configs.put("enable.auto.commit", "true");
-        consumer = buildConsumer();
+        consumer = buildConsumer(true);
         policy = AutoCommitPolicy.getInstance();
         completionWorkerService = new ExecutorCompletionService<>(ImmediateExecutor.INSTANCE);
         shutdownWorkerPoolOnStop = false;
@@ -108,39 +122,36 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildSync() {
-        configs.put("enable.auto.commit", "false");
-        consumer = buildConsumer();
+        consumer = buildConsumer(false);
         policy = new SyncCommitPolicy<>(consumer);
         return doBuild();
     }
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildPartialSync() {
-        configs.put("enable.auto.commit", "false");
-        consumer = buildConsumer();
+        consumer = buildConsumer(false);
         policy = new PartialSyncCommitPolicy<>(consumer);
         return doBuild();
     }
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildAsync() {
-        configs.put("enable.auto.commit", "false");
-        consumer = buildConsumer();
+        consumer = buildConsumer(false);
         policy = new AsyncCommitPolicy<>(consumer, maxConsecutiveAsyncCommits);
         return doBuild();
     }
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildPartialAsync() {
-        configs.put("enable.auto.commit", "false");
-        consumer = buildConsumer();
+        consumer = buildConsumer(false);
         policy = new PartialAsyncCommitPolicy<>(consumer, maxConsecutiveAsyncCommits);
         return doBuild();
     }
 
     Consumer<K, V> getConsumer() {
+        assert consumer != null;
         return consumer;
     }
 
     MessageHandler<V> getMessageHandler() {
-        return handler;
+        return messageHandler;
     }
 
     ExecutorService getWorkerPool() {
@@ -167,12 +178,13 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     CommitPolicy<K, V> getPolicy() {
+        assert policy != null;
         return policy;
     }
 
-    private Consumer<K, V> buildConsumer() {
+    private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
-
+        configs.put("enable.auto.commit", Boolean.toString(autoCommit));
         if (keyDeserializer != null) {
             assert valueDeserializer != null;
             return new KafkaConsumer<>(configs, keyDeserializer, valueDeserializer);

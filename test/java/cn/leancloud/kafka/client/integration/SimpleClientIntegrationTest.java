@@ -44,8 +44,8 @@ public class SimpleClientIntegrationTest {
         LongAdder adder = new LongAdder();
 
 
-        LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(configs)
-                .messageHandler((topic, value) -> {
+        LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(configs,
+                (topic, value) -> {
                     logger.info("receive msg from {} with value: {}", topic, value);
                     adder.increment();
                 })

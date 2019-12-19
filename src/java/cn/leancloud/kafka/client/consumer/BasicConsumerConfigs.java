@@ -1,9 +1,12 @@
 package cn.leancloud.kafka.client.consumer;
 
+import javax.annotation.Nullable;
+
 enum BasicConsumerConfigs implements KafkaConfigsChecker {
     AUTO_OFFSET_RESET("auto.offset.reset");
 
     private String config;
+    @Nullable
     private String expectedValue;
     private boolean required;
 
@@ -13,7 +16,7 @@ enum BasicConsumerConfigs implements KafkaConfigsChecker {
         this.required = false;
     }
 
-    BasicConsumerConfigs(String config, String expectedValue, boolean required) {
+    BasicConsumerConfigs(String config, @Nullable String expectedValue, boolean required) {
         this.config = config;
         this.expectedValue = expectedValue;
         this.required = required;
