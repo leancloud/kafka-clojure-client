@@ -8,6 +8,8 @@ import org.apache.kafka.common.TopicPartition;
 import java.util.*;
 import java.util.concurrent.Future;
 
+import static java.util.Comparator.comparing;
+import static java.util.function.BinaryOperator.maxBy;
 import static java.util.stream.Collectors.toSet;
 
 public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
@@ -34,7 +36,7 @@ public final class PartialSyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
         completedTopicOffsets.merge(
                 new TopicPartition(record.topic(), record.partition()),
                 new OffsetAndMetadata(record.offset() + 1L),
-                (offset1, offset2) -> offset1.offset() > offset2.offset() ? offset1 : offset2);
+                maxBy(comparing(OffsetAndMetadata::offset)));
     }
 
     @Override

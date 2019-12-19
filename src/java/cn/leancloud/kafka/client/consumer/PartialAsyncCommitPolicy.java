@@ -10,7 +10,9 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.Future;
 
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toSet;
+import static java.util.function.BinaryOperator.maxBy;
 
 public final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
@@ -42,7 +44,7 @@ public final class PartialAsyncCommitPolicy<K, V> implements CommitPolicy<K, V> 
         completedTopicOffsets.merge(
                 new TopicPartition(record.topic(), record.partition()),
                 new OffsetAndMetadata(record.offset() + 1L),
-                (offset1, offset2) -> offset1.offset() > offset2.offset() ? offset1 : offset2);
+                maxBy(comparing(OffsetAndMetadata::offset)));
     }
 
     @Override
