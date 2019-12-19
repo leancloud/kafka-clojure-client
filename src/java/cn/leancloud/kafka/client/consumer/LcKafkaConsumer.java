@@ -42,7 +42,7 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
                 consumer,
                 builder.getPollTimeout(),
                 builder.getMessageHandler(),
-                builder.getCompletionWorkerService(),
+                builder.getWorkerPool(),
                 policy);
         this.fetcherThread = new Thread(fetcher);
     }

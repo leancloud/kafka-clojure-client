@@ -27,7 +27,7 @@ public final class RetriableMessageHandler<V> implements MessageHandler<V> {
         }
 
         if (lastException != null) {
-            throw new HandleMessageFailed(lastException);
+            throw new HandleMessageFailedException(lastException);
         }
     }
 }

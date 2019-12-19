@@ -13,7 +13,7 @@ enum BasicConsumerConfigs implements KafkaConfigsChecker {
     BasicConsumerConfigs(String config) {
         this.config = config;
         this.expectedValue = null;
-        this.required = false;
+        this.required = true;
     }
 
     BasicConsumerConfigs(String config, @Nullable String expectedValue, boolean required) {

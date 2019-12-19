@@ -1,14 +1,12 @@
 package cn.leancloud.kafka.client.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.Deserializer;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -18,16 +16,36 @@ import static java.util.Objects.requireNonNull;
 public final class LcKafkaConsumerBuilder<K, V> {
     private static final ThreadFactory threadFactory = new NamedThreadFactory("lc-kafka-consumer-task-worker-pool");
 
-    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> configs,
+    /**
+     * Create a {@code LcKafkaConsumerBuilder} used to build {@link LcKafkaConsumer}.
+     *
+     * @param kafkaConfigs   the kafka consumer configs. Please refer
+     *                       <a href="http://kafka.apache.org/documentation.html#consumerconfigs" >this document</a> for
+     *                       valid configurations.
+     * @param messageHandler a {@link MessageHandler} to handle the consumed msg from kafka
+     * @return a new {@code LcKafkaConsumerBuilder}
+     */
+    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
                                                                     MessageHandler<Object> messageHandler) {
-        return new LcKafkaConsumerBuilder<>(configs, messageHandler);
+        return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler);
     }
 
-    public static LcKafkaConsumerBuilder<?, ?> newBuilder(Map<String, Object> configs,
-                                                          MessageHandler<Object> messageHandler,
-                                                          Deserializer<?> keyDeserializer,
-                                                          Deserializer<Object> valueDeserializer) {
-        return new LcKafkaConsumerBuilder<>(configs, messageHandler, keyDeserializer, valueDeserializer);
+    /**
+     * Create a {@code LcKafkaConsumerBuilder} used to build {@link LcKafkaConsumer}.
+     *
+     * @param kafkaConfigs      the kafka consumer configs. Please refer
+     *                          <a href="http://kafka.apache.org/documentation.html#consumerconfigs" >this document</a> for
+     *                          valid configurations.
+     * @param messageHandler    a {@link MessageHandler} to handle the consumed msg from kafka
+     * @param keyDeserializer   The deserializer for key that implements {@link Deserializer}
+     * @param valueDeserializer The deserializer for value that implements {@link Deserializer}
+     * @return a new {@code LcKafkaConsumerBuilder}
+     */
+    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
+                                                                    MessageHandler<Object> messageHandler,
+                                                                    Deserializer<Object> keyDeserializer,
+                                                                    Deserializer<Object> valueDeserializer) {
+        return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler, keyDeserializer, valueDeserializer);
     }
 
     /**
@@ -53,8 +71,6 @@ public final class LcKafkaConsumerBuilder<K, V> {
     private CommitPolicy<K, V> policy;
     @Nullable
     private ExecutorService workerPool;
-    @Nullable
-    private ExecutorCompletionService<ConsumerRecord<K, V>> completionWorkerService;
     private boolean shutdownWorkerPoolOnStop;
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
@@ -80,18 +96,49 @@ public final class LcKafkaConsumerBuilder<K, V> {
         this.valueDeserializer = valueDeserializer;
     }
 
+    /**
+     * The pollTimeout is the maximum time spent waiting in polling data from kafka broker if data is not available in
+     * the buffer.
+     * <p>
+     * If 0, poll operation will return immediately with any records that are available currently in the buffer,
+     * else returns empty.
+     * <p>
+     * Must not be negative.
+     *
+     * @param pollTimeoutMs the poll timeout in milliseconds
+     * @return this
+     */
     public LcKafkaConsumerBuilder<K, V> pollTimeoutMs(long pollTimeoutMs) {
         requireArgument(pollTimeoutMs >= 0, "pollTimeoutMs: %s (expect >= 0)", pollTimeoutMs);
         this.pollTimeout = pollTimeoutMs;
         return this;
     }
 
+    /**
+     * The pollTimeout is the maximum time spent waiting in polling data from kafka broker if data is not available in
+     * the buffer.
+     * <p>
+     * If 0, poll operation will return immediately with any records that are available currently in the buffer,
+     * else returns empty.
+     * <p>
+     * Must not be negative.
+     *
+     * @param pollTimeout the poll timeout duration
+     * @return this
+     */
     public LcKafkaConsumerBuilder<K, V> pollTimeout(Duration pollTimeout) {
         requireNonNull(pollTimeout, "pollTimeout");
         this.pollTimeout = pollTimeout.toMillis();
         return this;
     }
 
+    /**
+     * When using async consumer to commit offset asynchronously, this argument can force consumer to do a synchronous
+     * commit after {@code maxConsecutiveAsyncCommits} async commits.
+     *
+     * @param maxConsecutiveAsyncCommits do a synchronous commit after this many async commits
+     * @return this
+     */
     public LcKafkaConsumerBuilder<K, V> maxConsecutiveAsyncCommits(int maxConsecutiveAsyncCommits) {
         requireArgument(maxConsecutiveAsyncCommits > 0,
                 "maxConsecutiveAsyncCommits: %s (expect > 0)", maxConsecutiveAsyncCommits);
@@ -99,12 +146,26 @@ public final class LcKafkaConsumerBuilder<K, V> {
         return this;
     }
 
-    public LcKafkaConsumerBuilder<K, V> messageHandler(MessageHandler<V> msgHandler) {
-        requireNonNull(msgHandler, "msgHandler");
-        this.messageHandler = msgHandler;
+    /**
+     * Change the {@link MessageHandler} to handle the consumed msg from kafka.
+     *
+     * @param messageHandler the handler to handle consumed msg
+     * @return this
+     */
+    public LcKafkaConsumerBuilder<K, V> messageHandler(MessageHandler<V> messageHandler) {
+        requireNonNull(messageHandler, "messageHandler");
+        this.messageHandler = messageHandler;
         return this;
     }
 
+    /**
+     * The thread pool used by consumer to handle the consumed messages from kafka. Please note that if you are
+     * using auto commit consumer, this thread pool is not be used.
+     *
+     * @param workerPool     a thread pool to handle consumed messages
+     * @param shutdownOnStop true to shutdown the input worker pool when this consumer closed
+     * @return this
+     */
     public LcKafkaConsumerBuilder<K, V> workerPool(ExecutorService workerPool, boolean shutdownOnStop) {
         requireNonNull(workerPool, "workerPool");
         this.workerPool = workerPool;
@@ -112,11 +173,45 @@ public final class LcKafkaConsumerBuilder<K, V> {
         return this;
     }
 
+    /**
+     * Build a consumer which commit offset automatically in fixed interval. This consumer will not using other thread
+     * pool to handle consumed messages and will not pause any partition when after polling. This consumer is
+     * equivalent to:
+     * <pre>
+     * while (true) {
+     *     final ConsumerRecords<K, V> records = consumer.poll(pollTimeout);
+     *     for (ConsumerRecord<K, V> record : records) {
+     *         handler.handleMessage(record.topic(), record.value());
+     *     }
+     * }
+     * </pre>
+     *
+     * <p>
+     * Please note that this consumer requires these kafka configs must be set, otherwise
+     * {@link IllegalArgumentException} will be thrown:
+     * <ol>
+     *     <li><code>max.poll.interval.ms</code></li>
+     *     <li><code>max.poll.records</code></li>
+     *     <li><code>auto.commit.interval.ms</code></li>
+     * </ol>
+     * <p>
+     * Though all of these configs have default values in kafka, we still require every user to set them specifically.
+     * Because these configs is vital for using this consumer safely. You should tune them to ensure the polling thread
+     * in this consumer can at least poll once within {@code max.poll.interval.ms} during handling consumed messages
+     * to prevent itself from session timeout.
+     *
+     * Note that if you set {@code enable.auto.commit} to false, this consumer will set it to true by itself.
+     *
+     * @return this
+     */
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildAuto() {
         checkConfigs(AutoCommitConsumerConfigs.values());
         consumer = buildConsumer(true);
         policy = AutoCommitPolicy.getInstance();
-        completionWorkerService = new ExecutorCompletionService<>(ImmediateExecutor.INSTANCE);
+        if (workerPool != null && shutdownWorkerPoolOnStop) {
+            throw new IllegalArgumentException("auto commit consumer don't need a worker pool");
+        }
+        workerPool = ImmediateExecutorService.INSTANCE;
         shutdownWorkerPoolOnStop = false;
         return doBuild();
     }
@@ -155,18 +250,8 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     ExecutorService getWorkerPool() {
-        if (workerPool == null) {
-            workerPool = Executors.newCachedThreadPool(threadFactory);
-            shutdownWorkerPoolOnStop = true;
-        }
+        assert workerPool != null;
         return workerPool;
-    }
-
-    ExecutorCompletionService<ConsumerRecord<K, V>> getCompletionWorkerService() {
-        if (completionWorkerService == null) {
-            completionWorkerService = new ExecutorCompletionService<>(getWorkerPool());
-        }
-        return completionWorkerService;
     }
 
     boolean isShutdownWorkerPoolOnStop() {
@@ -201,6 +286,11 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     private <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> doBuild() {
+        if (workerPool == null) {
+            workerPool = Executors.newCachedThreadPool(threadFactory);
+            shutdownWorkerPoolOnStop = true;
+        }
+
         @SuppressWarnings("unchecked")
         final LcKafkaConsumer<K1, V1> c = (LcKafkaConsumer<K1, V1>) new LcKafkaConsumer<>(this);
         return c;

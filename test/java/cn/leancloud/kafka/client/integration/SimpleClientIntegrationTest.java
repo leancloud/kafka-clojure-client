@@ -63,6 +63,7 @@ public class SimpleClientIntegrationTest {
         }
         System.out.println(producer.sent());
         System.out.println(adder.sumThenReset());
+        client.close();
     }
 
 

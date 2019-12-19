@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 final class Fetcher<K, V> implements Runnable, Closeable {
@@ -24,19 +25,19 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     private final MessageHandler<V> handler;
     private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
+    private final CommitPolicy<K, V> policy;
     private volatile boolean closed;
-    private CommitPolicy<K, V> policy;
 
     Fetcher(Consumer<K, V> consumer,
             long pollTimeout,
             MessageHandler<V> handler,
-            ExecutorCompletionService<ConsumerRecord<K, V>> service,
+            ExecutorService workerPool,
             CommitPolicy<K, V> policy) {
         this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
         this.pollTimeout = pollTimeout;
         this.handler = handler;
-        this.service = service;
+        this.service = new ExecutorCompletionService<>(workerPool);
         this.policy = policy;
     }
 

@@ -15,7 +15,7 @@ enum AutoCommitConsumerConfigs implements KafkaConfigsChecker {
     AutoCommitConsumerConfigs(String config) {
         this.config = config;
         this.expectedValue = null;
-        this.required = false;
+        this.required = true;
     }
 
     AutoCommitConsumerConfigs(String config, @Nullable String expectedValue, boolean required) {
