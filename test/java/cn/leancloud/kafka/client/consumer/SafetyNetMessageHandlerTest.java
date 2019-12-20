@@ -35,7 +35,7 @@ public class SafetyNetMessageHandlerTest {
 
     @Test
     public void testDefaultErrorHandler() {
-        final Exception expectedEx = new RuntimeException();
+        final Exception expectedEx = new RuntimeException("expected exception");
 
         doThrow(expectedEx).when(innerHandler).handleMessage(testingRecord);
 

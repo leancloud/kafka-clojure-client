@@ -1,7 +1,6 @@
 package cn.leancloud.kafka.client.consumer;
 
 import javax.annotation.Nullable;
-import java.util.Map;
 
 enum BasicConsumerConfigs implements KafkaConfigsChecker {
     AUTO_OFFSET_RESET("auto.offset.reset"),
@@ -43,15 +42,5 @@ enum BasicConsumerConfigs implements KafkaConfigsChecker {
     @Override
     public boolean required() {
         return required;
-    }
-
-    public void set(Map<String, Object> configs, Object value) {
-        configs.put(configName(), value);
-    }
-
-    public <T> T get(Map<String, Object> configs) {
-        @SuppressWarnings("unchecked")
-        T value = (T) configs.get(configName());
-        return value;
     }
 }
