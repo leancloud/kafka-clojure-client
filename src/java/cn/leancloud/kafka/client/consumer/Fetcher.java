@@ -22,7 +22,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
 
     private final long pollTimeout;
     private final Consumer<K, V> consumer;
-    private final MessageHandler<V> handler;
+    private final MessageHandler<K, V> handler;
     private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final CommitPolicy<K, V> policy;
@@ -30,7 +30,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
 
     Fetcher(Consumer<K, V> consumer,
             long pollTimeout,
-            MessageHandler<V> handler,
+            MessageHandler<K, V> handler,
             ExecutorService workerPool,
             CommitPolicy<K, V> policy) {
         this.pendingFutures = new HashMap<>();
@@ -91,10 +91,10 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     }
 
     private void dispatchFetchedRecords(ConsumerRecords<K, V> records) {
-        final MessageHandler<V> handler = this.handler;
+        final MessageHandler<K, V> handler = this.handler;
         for (ConsumerRecord<K, V> record : records) {
             final Future<ConsumerRecord<K, V>> future = service.submit(() -> {
-                handler.handleMessage(record.topic(), record.value());
+                handler.handleMessage(record);
                 return record;
             });
             pendingFutures.put(record, future);

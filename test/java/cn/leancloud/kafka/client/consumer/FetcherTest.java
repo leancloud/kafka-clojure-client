@@ -29,7 +29,7 @@ public class FetcherTest {
     private static final Object defaultMsg = new Object();
     private static final long pollTimeout = 100;
     private MockConsumer<Object, Object> consumer;
-    private MessageHandler<Object> messageHandler;
+    private MessageHandler<Object, Object> messageHandler;
     private CommitPolicy<Object, Object> policy;
     private ExecutorService executorService;
     private Fetcher<Object, Object> fetcher;
@@ -79,7 +79,7 @@ public class FetcherTest {
         final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, defaultKey, defaultMsg);
         assignPartitions(toPartitions(singletonList(0)), 0L);
         consumer.addRecord(pendingRecord);
-        doThrow(new RuntimeException("expected exception")).when(messageHandler).handleMessage(testingTopic, defaultMsg);
+        doThrow(new RuntimeException("expected exception")).when(messageHandler).handleMessage(pendingRecord);
 
         fetcherThread.start();
 
@@ -89,7 +89,7 @@ public class FetcherTest {
         verify(policy, times(1)).addPendingRecord(eq(pendingRecord), any());
         verify(policy, never()).completeRecord(any());
         verify(policy, never()).tryCommit(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, defaultMsg);
+        verify(messageHandler, times(1)).handleMessage(pendingRecord);
     }
 
     @Test
@@ -117,7 +117,7 @@ public class FetcherTest {
         verify(policy, times(1)).addPendingRecord(eq(pendingRecord), any());
         verify(policy, times(1)).completeRecord(pendingRecord);
         verify(policy, atLeastOnce()).tryCommit(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, defaultMsg);
+        verify(messageHandler, times(1)).handleMessage(pendingRecord);
     }
 
     @Test
@@ -137,7 +137,7 @@ public class FetcherTest {
             // wait until the main thread figure out that all the partitions was paused
             barrier.await();
             return null;
-        }).when(messageHandler).handleMessage(testingTopic, defaultMsg);
+        }).when(messageHandler).handleMessage(any());
 
         // record complete partitions
         doAnswer(invocation -> {
@@ -168,7 +168,7 @@ public class FetcherTest {
         verify(policy, times(pendingRecords.size())).addPendingRecord(any(), any());
         verify(policy, times(pendingRecords.size())).completeRecord(any());
         verify(policy, times(1)).beforeClose(any());
-        verify(messageHandler, times(pendingRecords.size())).handleMessage(testingTopic, defaultMsg);
+        verify(messageHandler, times(pendingRecords.size())).handleMessage(any());
 
         executors.shutdown();
     }
@@ -209,7 +209,7 @@ public class FetcherTest {
     }
 
     private void fireConsumerRecords(Collection<ConsumerRecord<Object, Object>> records) {
-        for(ConsumerRecord<Object, Object> record : records) {
+        for (ConsumerRecord<Object, Object> record : records) {
             consumer.addRecord(record);
         }
     }

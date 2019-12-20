@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 
 public class LcKafkaConsumerTest {
     private static final List<String> testingTopics = Collections.singletonList("TestingTopic");
-    private MessageHandler<Object> messageHandler;
+    private MessageHandler<Object, Object> messageHandler;
     private Map<String, Object> configs;
     private ExecutorService workerPool;
     private LcKafkaConsumer<Object, Object> consumer;

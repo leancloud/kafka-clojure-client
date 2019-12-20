@@ -1,10 +1,12 @@
 package cn.leancloud.kafka.client.consumer;
 
-public final class RetriableMessageHandler<V> implements MessageHandler<V> {
-    private final int maxRetryTimes;
-    private final MessageHandler<V> innerHandler;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
-    public RetriableMessageHandler(MessageHandler<V> innerHandler, int maxRetryTimes) {
+public final class RetriableMessageHandler<K, V> implements MessageHandler<K, V> {
+    private final int maxRetryTimes;
+    private final MessageHandler<K, V> innerHandler;
+
+    public RetriableMessageHandler(MessageHandler<K, V> innerHandler, int maxRetryTimes) {
         if (maxRetryTimes <= 0) {
             throw new IllegalArgumentException("maxRetryTimes: " + maxRetryTimes + " (expect > 0)");
         }
@@ -14,11 +16,11 @@ public final class RetriableMessageHandler<V> implements MessageHandler<V> {
     }
 
     @Override
-    public void handleMessage(String topic, V value) {
+    public void handleMessage(ConsumerRecord<K, V> record) {
         Exception lastException = null;
         for (int retried = 0; retried < maxRetryTimes; ++retried) {
             try {
-                innerHandler.handleMessage(topic, value);
+                innerHandler.handleMessage(record);
                 lastException = null;
                 break;
             } catch (Exception ex) {

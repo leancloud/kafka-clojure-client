@@ -14,7 +14,7 @@ import static org.mockito.Mockito.mock;
 public class LcKafkaConsumerBuilderTest {
 
     private Map<String, Object> configs;
-    private MessageHandler<Object> testingHandler;
+    private MessageHandler<Object, Object> testingHandler;
     private Deserializer<Object> keyDeserializer;
     private Deserializer<Object> valueDeserializer;
 

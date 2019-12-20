@@ -1,12 +1,17 @@
 package cn.leancloud.kafka.client.consumer;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.function.BiConsumer;
 
 import static org.mockito.Mockito.*;
 
 public class SafetyNetMessageHandlerTest {
-    private MessageHandler<Object> innerHandler;
+    private static final String topic = "topic";
+    private static final ConsumerRecord<Object, Object> testingRecord = new ConsumerRecord<>(topic, 0, 1, new Object(), new Object());
+    private MessageHandler<Object, Object> innerHandler;
 
     @Before
     public void setUp() {
@@ -16,49 +21,42 @@ public class SafetyNetMessageHandlerTest {
     @Test
     public void testCustomErrorHandler() {
         final Exception expectedEx = new RuntimeException();
-        final String topic = "topic";
-        final Object msg = new Object();
-        final TriConsumer<String, Object, Throwable> errorConsumer = mock(TriConsumer.class);
+        final BiConsumer<ConsumerRecord<Object, Object>, Throwable> errorConsumer = mock(BiConsumer.class);
 
-        doThrow(expectedEx).when(innerHandler).handleMessage(topic, msg);
+        doThrow(expectedEx).when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new SafetyNetMessageHandler<>(innerHandler, errorConsumer);
+        MessageHandler<Object, Object> handler = new SafetyNetMessageHandler<>(innerHandler, errorConsumer);
 
-        handler.handleMessage(topic, msg);
+        handler.handleMessage(testingRecord);
 
-        verify(innerHandler, times(1)).handleMessage(topic, msg);
-        verify(errorConsumer,times(1)).accept(topic, msg, expectedEx);
+        verify(innerHandler, times(1)).handleMessage(testingRecord);
+        verify(errorConsumer, times(1)).accept(testingRecord, expectedEx);
     }
 
     @Test
     public void testDefaultErrorHandler() {
         final Exception expectedEx = new RuntimeException();
-        final String topic = "topic";
-        final Object msg = new Object();
 
-        doThrow(expectedEx).when(innerHandler).handleMessage(topic, msg);
+        doThrow(expectedEx).when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new SafetyNetMessageHandler<>(innerHandler);
+        MessageHandler<Object, Object> handler = new SafetyNetMessageHandler<>(innerHandler);
 
-        handler.handleMessage(topic, msg);
+        handler.handleMessage(testingRecord);
 
-        verify(innerHandler, times(1)).handleMessage(topic, msg);
+        verify(innerHandler, times(1)).handleMessage(testingRecord);
     }
-
 
     @Test
     public void testHandleSuccess() {
-        final String topic = "topic";
-        final Object msg = new Object();
-        final TriConsumer<String, Object, Throwable> errorConsumer = mock(TriConsumer.class);
+        final BiConsumer<ConsumerRecord<Object, Object>, Throwable> errorConsumer = mock(BiConsumer.class);
 
-        doNothing().when(innerHandler).handleMessage(topic, msg);
+        doNothing().when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new SafetyNetMessageHandler<>(innerHandler, errorConsumer);
+        MessageHandler<Object, Object> handler = new SafetyNetMessageHandler<>(innerHandler, errorConsumer);
 
-        handler.handleMessage(topic, msg);
+        handler.handleMessage(testingRecord);
 
-        verify(innerHandler, times(1)).handleMessage(topic, msg);
-        verify(errorConsumer,never()).accept(anyString(), any(), any());
+        verify(innerHandler, times(1)).handleMessage(testingRecord);
+        verify(errorConsumer, never()).accept(any(), any());
     }
 }

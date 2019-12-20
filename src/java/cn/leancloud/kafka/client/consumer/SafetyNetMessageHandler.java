@@ -1,29 +1,32 @@
 package cn.leancloud.kafka.client.consumer;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SafetyNetMessageHandler<V> implements MessageHandler<V> {
+import java.util.function.BiConsumer;
+
+public class SafetyNetMessageHandler<K, V> implements MessageHandler<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(SafetyNetMessageHandler.class);
 
-    private final MessageHandler<V> innerHandler;
-    private final TriConsumer<String, ? super V, Throwable> errorConsumer;
+    private final MessageHandler<K, V> innerHandler;
+    private final BiConsumer<ConsumerRecord<K, V>, Throwable> errorConsumer;
 
-    public SafetyNetMessageHandler(MessageHandler<V> innerHandler) {
-        this(innerHandler, (topic, value, throwable) -> logger.error("Handle message " + value + " from topic: " + topic + " failed."));
+    public SafetyNetMessageHandler(MessageHandler<K, V> innerHandler) {
+        this(innerHandler, (record, throwable) -> logger.error("Handle kafka consumer record: " + record + " failed.", throwable));
     }
 
-    public SafetyNetMessageHandler(MessageHandler<V> innerHandler, TriConsumer<String, ? super V, Throwable> errorConsumer) {
+    public SafetyNetMessageHandler(MessageHandler<K, V> innerHandler, BiConsumer<ConsumerRecord<K, V>, Throwable> errorConsumer) {
         this.innerHandler = innerHandler;
         this.errorConsumer = errorConsumer;
     }
 
     @Override
-    public void handleMessage(String topic, V value) {
+    public void handleMessage(ConsumerRecord<K, V> record) {
         try {
-            innerHandler.handleMessage(topic, value);
+            innerHandler.handleMessage(record);
         } catch (Exception ex) {
-            errorConsumer.accept(topic, value, ex);
+            errorConsumer.accept(record, ex);
         }
     }
 }

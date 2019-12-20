@@ -34,8 +34,13 @@
 
 (defn to-message-handler [handler-fn]
   (reify MessageHandler
-    (handleMessage [_ topic value]
-      (handler-fn topic value))))
+    (handleMessage [_ record]
+      (handler-fn record))))
+
+(defn to-only-value-message-handler [handler-fn]
+  (reify MessageHandler
+    (handleMessage [_ record]
+      (handler-fn (.value record)))))
 
 (defn ^LcKafkaConsumer create-sync-commit-consumer [kafka-configs msg-handler & opts]
   (.buildSync (create-builder kafka-configs msg-handler opts)))

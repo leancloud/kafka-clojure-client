@@ -34,8 +34,8 @@ public class SyncCommitIntegrationTest {
         LongAdder adder = new LongAdder();
         LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(
                 configs,
-                (topic, value) -> {
-                    logger.info("receive msg from {} with value: {}", topic, value);
+                (record) -> {
+                    logger.info("receive msg from {} with value: {}", topic, record.value());
                     adder.increment();
                 })
                 .buildSync();

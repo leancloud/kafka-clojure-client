@@ -1,6 +1,7 @@
 package cn.leancloud.kafka.client.consumer;
 
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -10,7 +11,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 public class RetriableMessageHandlerTest {
-    private MessageHandler<Object> innerHandler;
+    private static final String topic = "topic";
+    private static final ConsumerRecord<Object, Object> testingRecord = new ConsumerRecord<>(topic, 0, 1, new Object(), new Object());
+    private MessageHandler<Object, Object> innerHandler;
 
     @Before
     public void setUp() {
@@ -29,48 +32,42 @@ public class RetriableMessageHandlerTest {
     public void testRetry() {
         final Exception expectedEx = new RuntimeException();
         final int retryTimes = 10;
-        final String topic = "topic";
-        final Object msg = new Object();
 
-        doThrow(expectedEx).when(innerHandler).handleMessage(topic, msg);
+        doThrow(expectedEx).when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
+        MessageHandler<Object, Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
 
-        assertThatThrownBy(() -> handler.handleMessage(topic, msg))
+        assertThatThrownBy(() -> handler.handleMessage(testingRecord))
                 .isInstanceOf(HandleMessageFailedException.class)
                 .hasCause(expectedEx);
 
-        verify(innerHandler, times(retryTimes)).handleMessage(topic, msg);
+        verify(innerHandler, times(retryTimes)).handleMessage(testingRecord);
     }
 
     @Test
     public void testNoRetry() {
         final int retryTimes = 10;
-        final String topic = "topic";
-        final Object msg = new Object();
 
-        doNothing().when(innerHandler).handleMessage(topic, msg);
+        doNothing().when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
+        MessageHandler<Object, Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
 
-        handler.handleMessage(topic, msg);
+        handler.handleMessage(testingRecord);
 
-        verify(innerHandler, times(1)).handleMessage(topic, msg);
+        verify(innerHandler, times(1)).handleMessage(testingRecord);
     }
 
     @Test
     public void testRetrySuccess() {
         final Exception expectedEx = new RuntimeException();
         final int retryTimes = 10;
-        final String topic = "topic";
-        final Object msg = new Object();
 
-        doThrow(expectedEx).doNothing().when(innerHandler).handleMessage(topic, msg);
+        doThrow(expectedEx).doNothing().when(innerHandler).handleMessage(testingRecord);
 
-        MessageHandler<Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
+        MessageHandler<Object, Object> handler = new RetriableMessageHandler<>(innerHandler, retryTimes);
 
-        handler.handleMessage(topic, msg);
+        handler.handleMessage(testingRecord);
 
-        verify(innerHandler, times(2)).handleMessage(topic, msg);
+        verify(innerHandler, times(2)).handleMessage(testingRecord);
     }
 }

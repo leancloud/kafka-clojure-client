@@ -28,7 +28,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @return a new {@code LcKafkaConsumerBuilder}
      */
     public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
-                                                                    MessageHandler<Object> messageHandler) {
+                                                                    MessageHandler<Object, Object> messageHandler) {
         return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler);
     }
 
@@ -44,7 +44,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @return a new {@code LcKafkaConsumerBuilder}
      */
     public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
-                                                                    MessageHandler<Object> messageHandler,
+                                                                    MessageHandler<Object, Object> messageHandler,
                                                                     Deserializer<Object> keyDeserializer,
                                                                     Deserializer<Object> valueDeserializer) {
         return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler, keyDeserializer, valueDeserializer);
@@ -62,7 +62,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
     private long pollTimeout = 100;
     private int maxConsecutiveAsyncCommits = 10;
     private Map<String, Object> configs;
-    private MessageHandler<V> messageHandler;
+    private MessageHandler<K, V> messageHandler;
     @Nullable
     private Consumer<K, V> consumer;
     @Nullable
@@ -76,7 +76,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
     private boolean shutdownWorkerPoolOnStop;
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
-                                   MessageHandler<V> messageHandler) {
+                                   MessageHandler<K, V> messageHandler) {
         requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
         requireNonNull(messageHandler, "messageHandler");
         this.configs = kafkaConsumerConfigs;
@@ -84,7 +84,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
-                                   MessageHandler<V> messageHandler,
+                                   MessageHandler<K, V> messageHandler,
                                    Deserializer<K> keyDeserializer,
                                    Deserializer<V> valueDeserializer) {
         requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
@@ -154,7 +154,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @param messageHandler the handler to handle consumed msg
      * @return this
      */
-    public LcKafkaConsumerBuilder<K, V> messageHandler(MessageHandler<V> messageHandler) {
+    public LcKafkaConsumerBuilder<K, V> messageHandler(MessageHandler<K, V> messageHandler) {
         requireNonNull(messageHandler, "messageHandler");
         this.messageHandler = messageHandler;
         return this;
@@ -258,7 +258,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
         return consumer;
     }
 
-    MessageHandler<V> getMessageHandler() {
+    MessageHandler<K, V> getMessageHandler() {
         return messageHandler;
     }
 

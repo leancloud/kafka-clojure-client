@@ -38,6 +38,7 @@ public class SimpleClientIntegrationTest {
         configs.put("max.poll.records", 2);
         configs.put("max.poll.interval.ms", "5000");
         configs.put("enable.auto.commit", "true");
+        configs.put("auto.commit.interval.ms", "5000");
         configs.put("key.deserializer", IntegerDeserializer.class.getName());
         configs.put("value.deserializer", StringDeserializer.class.getName());
 
@@ -45,8 +46,8 @@ public class SimpleClientIntegrationTest {
 
 
         LcKafkaConsumer<Integer, String> client = LcKafkaConsumerBuilder.newBuilder(configs,
-                (topic, value) -> {
-                    logger.info("receive msg from {} with value: {}", topic, value);
+                (record) -> {
+                    logger.info("receive msg from {} with value: {}", topic, record.value());
                     adder.increment();
                 })
                 .buildAuto();
