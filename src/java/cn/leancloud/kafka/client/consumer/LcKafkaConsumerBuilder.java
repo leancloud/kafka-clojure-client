@@ -134,6 +134,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
         return this;
     }
 
+    // todo: change this to max pending async commits
     /**
      * When using async consumer to commit offset asynchronously, this argument can force consumer to do a synchronous
      * commit after {@code maxConsecutiveAsyncCommits} async commits.
@@ -283,19 +284,18 @@ public final class LcKafkaConsumerBuilder<K, V> {
     private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
         ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
-        if (keyDeserializer != null) {
+        if ( keyDeserializer != null)  {
             assert valueDeserializer != null;
-            return new KafkaConsumer<>(configs, keyDeserializer, valueDeserializer);
+        } else {
+            assert valueDeserializer == null;
         }
 
-        assert valueDeserializer == null;
         if (consumer != null) {
             // if consumer exists, it must be a mocked consumer, not KafkaConsumer
             assert !(consumer instanceof KafkaConsumer);
             return consumer;
         }
-
-        return new KafkaConsumer<>(configs);
+        return new KafkaConsumer<>(configs, keyDeserializer, valueDeserializer);
     }
 
     private void checkConfigs(KafkaConfigsChecker[] checkers) {

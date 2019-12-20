@@ -99,4 +99,8 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
     boolean closed() {
         return state == State.CLOSED;
     }
+
+    CommitPolicy<K,V> policy() {
+        return policy;
+    }
 }

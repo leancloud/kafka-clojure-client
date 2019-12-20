@@ -5,43 +5,37 @@ import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * This is an shared {@link java.util.concurrent.ExecutorService} so it can not be shutdown
+ */
 final class ImmediateExecutorService extends AbstractExecutorService {
     static final ImmediateExecutorService INSTANCE = new ImmediateExecutorService();
-
-    private boolean terminated;
 
     private ImmediateExecutorService() {
     }
 
     @Override
     public void shutdown() {
-        terminated = true;
     }
 
     @Override
     public List<Runnable> shutdownNow() {
-        terminated = true;
         return Collections.emptyList();
     }
 
     @Override
     public boolean isShutdown() {
-        return terminated;
+        return false;
     }
 
     @Override
     public boolean isTerminated() {
-        return terminated;
+        return false;
     }
 
     @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-        if (terminated) {
-            return true;
-        } else {
-            Thread.sleep(unit.toMillis(timeout));
-            return false;
-        }
+        return true;
     }
 
     @Override
