@@ -2,6 +2,7 @@ package cn.leancloud.kafka.client.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.common.serialization.Deserializer;
 
 import javax.annotation.Nullable;
@@ -11,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
+import static cn.leancloud.kafka.client.consumer.BasicConsumerConfigs.ENABLE_AUTO_COMMIT;
 import static java.util.Objects.requireNonNull;
 
 public final class LcKafkaConsumerBuilder<K, V> {
@@ -159,6 +161,17 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     /**
+     * Internal testing usage only.
+     * Passing a {@link Consumer} as as the underlying kafka consumer. Usually this would be a {@link MockConsumer}.
+     *
+     * @return this
+     */
+    LcKafkaConsumerBuilder<K, V> mockKafkaConsumer(Consumer<K, V> consumer) {
+        this.consumer = consumer;
+        return this;
+    }
+
+    /**
      * The thread pool used by consumer to handle the consumed messages from kafka. Please note that if you are
      * using auto commit consumer, this thread pool is not be used.
      *
@@ -190,16 +203,16 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * Please note that this consumer requires these kafka configs must be set, otherwise
      * {@link IllegalArgumentException} will be thrown:
      * <ol>
-     *     <li><code>max.poll.interval.ms</code></li>
-     *     <li><code>max.poll.records</code></li>
-     *     <li><code>auto.commit.interval.ms</code></li>
-     * </ol>
+     *  <li><code>max.poll.interval.ms</code></li>
+     *  <li><code>max.poll.records</code></li>
+     *  <li><code>auto.commit.interval.ms</code></li>
+     *  </ol>
      * <p>
      * Though all of these configs have default values in kafka, we still require every user to set them specifically.
      * Because these configs is vital for using this consumer safely. You should tune them to ensure the polling thread
      * in this consumer can at least poll once within {@code max.poll.interval.ms} during handling consumed messages
      * to prevent itself from session timeout.
-     *
+     * <p>
      * Note that if you set {@code enable.auto.commit} to false, this consumer will set it to true by itself.
      *
      * @return this
@@ -269,13 +282,19 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
-        configs.put("enable.auto.commit", Boolean.toString(autoCommit));
+        ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
         if (keyDeserializer != null) {
             assert valueDeserializer != null;
             return new KafkaConsumer<>(configs, keyDeserializer, valueDeserializer);
         }
 
         assert valueDeserializer == null;
+        if (consumer != null) {
+            // if consumer exists, it must be a mocked consumer, not KafkaConsumer
+            assert !(consumer instanceof KafkaConsumer);
+            return consumer;
+        }
+
         return new KafkaConsumer<>(configs);
     }
 

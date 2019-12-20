@@ -49,7 +49,7 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
 
     public synchronized void subscribe(Collection<String> topics) {
         if (topics.isEmpty()) {
-            throw new IllegalArgumentException("empty topics");
+            throw new IllegalArgumentException("subscribe empty topics");
         }
 
         if (subscribed() || closed()) {
@@ -92,11 +92,11 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
         }
     }
 
-    private boolean subscribed() {
+    boolean subscribed() {
         return state.code() > State.INIT.code();
     }
 
-    private boolean closed() {
+    boolean closed() {
         return state == State.CLOSED;
     }
 }
