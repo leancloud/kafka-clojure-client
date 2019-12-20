@@ -8,20 +8,25 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+import java.util.*;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
 public class FetcherTest {
     private static final String testingTopic = "TestingTopic";
+    private static final Object defaultKey = new Object();
+    private static final Object defaultMsg = new Object();
     private static final long pollTimeout = 100;
     private MockConsumer<Object, Object> consumer;
     private MessageHandler<Object> messageHandler;
@@ -35,6 +40,7 @@ public class FetcherTest {
         consumer = new MockConsumer<>(OffsetResetStrategy.LATEST);
         messageHandler = mock(MessageHandler.class);
         policy = mock(CommitPolicy.class);
+        executorService = ImmediateExecutorService.INSTANCE;
     }
 
     @After
@@ -42,6 +48,7 @@ public class FetcherTest {
         fetcher.close();
         fetcherThread.join();
         consumer.close();
+        executorService.shutdown();
     }
 
     @Test
@@ -50,54 +57,49 @@ public class FetcherTest {
         fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
         fetcherThread = new Thread(fetcher);
 
-        final Future<ConsumerRecord<Object, Object>> neverDoneFuture = mock(Future.class);
-        final Object testingMsg = new Object();
-        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, new Object(), testingMsg);
-        when(executorService.submit(any(Runnable.class))).thenAnswer(invocationOnMock -> {
-            Callable<ConsumerRecord<Object, Object>> job = invocationOnMock.getArgument(0);
-            job.call();
-            return neverDoneFuture;
-        });
-        assignPartitions(Collections.singletonList(0), Collections.singletonList(0L));
+        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, defaultKey, defaultMsg);
+        doNothing().when(executorService).execute(any(Runnable.class));
+        assignPartitions(toPartitions(singletonList(0)), 0L);
         consumer.addRecord(pendingRecord);
         fetcherThread.start();
 
         await().until(() -> !fetcher.pendingFutures().isEmpty());
-        assertThat(fetcher.pendingFutures()).hasSize(1).containsOnlyKeys(pendingRecord).containsValue(neverDoneFuture);
+        assertThat(fetcher.pendingFutures()).hasSize(1).containsOnlyKeys(pendingRecord);
         fetcher.close();
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
         verify(policy, times(1)).beforeClose(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, testingMsg);
     }
 
     @Test
     public void testHandleMsgFailed() throws Exception {
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, ImmediateExecutorService.INSTANCE, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
         fetcherThread = new Thread(fetcher);
 
-        final Object testingMsg = new Object();
-        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, new Object(), testingMsg);
-        assignPartitions(Collections.singletonList(0), Collections.singletonList(0L));
+        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, defaultKey, defaultMsg);
+        assignPartitions(toPartitions(singletonList(0)), 0L);
         consumer.addRecord(pendingRecord);
+        doThrow(new RuntimeException("expected exception")).when(messageHandler).handleMessage(testingTopic, defaultMsg);
+
         fetcherThread.start();
-        doThrow(new RuntimeException("expected exception")).when(messageHandler).handleMessage(testingTopic, testingMsg);
 
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
         verify(policy, times(1)).beforeClose(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, testingMsg);
+        verify(policy, times(1)).addPendingRecord(eq(pendingRecord), any());
+        verify(policy, never()).completeRecord(any());
+        verify(policy, never()).tryCommit(any());
+        verify(messageHandler, times(1)).handleMessage(testingTopic, defaultMsg);
     }
 
     @Test
     public void testNoPauseWhenMsgHandledFastEnough() throws Exception {
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, ImmediateExecutorService.INSTANCE, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
         fetcherThread = new Thread(fetcher);
 
         final CyclicBarrier barrier = new CyclicBarrier(2);
-        final Object testingMsg = new Object();
-        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, new Object(), testingMsg);
-        assignPartitions(Collections.singletonList(0), Collections.singletonList(0L));
+        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, defaultKey, defaultMsg);
+        assignPartitions(toPartitions(singletonList(0)), 0L);
         when(policy.tryCommit(anyMap())).thenReturn(Collections.emptySet());
         doAnswer(invocation -> {
             barrier.await();
@@ -112,58 +114,103 @@ public class FetcherTest {
         assertThat(fetcher.pendingFutures()).isEmpty();
         assertThat(consumer.paused()).isEmpty();
         verify(policy, times(1)).beforeClose(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, testingMsg);
+        verify(policy, times(1)).addPendingRecord(eq(pendingRecord), any());
+        verify(policy, times(1)).completeRecord(pendingRecord);
+        verify(policy, atLeastOnce()).tryCommit(any());
+        verify(messageHandler, times(1)).handleMessage(testingTopic, defaultMsg);
     }
 
     @Test
     public void testPauseResume() throws Exception {
-        ExecutorService executors = Executors.newCachedThreadPool();
+        final ExecutorService executors = Executors.newCachedThreadPool();
         fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executors, policy);
         fetcherThread = new Thread(fetcher);
 
-        final List<Integer> partitions = IntStream.range(0, 30).boxed().collect(Collectors.toList());
-
-
-        final CyclicBarrier barrier = new CyclicBarrier(2);
-        final Object testingMsg = new Object();
-        final ConsumerRecord<Object, Object> pendingRecord = new ConsumerRecord<>(testingTopic, 0, 1, new Object(), testingMsg);
-        assignPartitions(partitions, Collections.singletonList(0L));
+        final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
+        // one msg for each partitions
+        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
+        final CyclicBarrier barrier = new CyclicBarrier(pendingRecords.size() + 1);
+        final Set<TopicPartition> completePartitions = new HashSet<>();
+        assignPartitions(partitions, 0L);
 
         doAnswer(invocation -> {
+            // wait until the main thread figure out that all the partitions was paused
             barrier.await();
             return null;
-        }).when(messageHandler).handleMessage(testingTopic, testingMsg);
+        }).when(messageHandler).handleMessage(testingTopic, defaultMsg);
 
-        when(policy.tryCommit(anyMap())).thenReturn(Collections.emptySet());
+        // record complete partitions
         doAnswer(invocation -> {
-            barrier.await();
+            final ConsumerRecord<Object, Object> completeRecord = invocation.getArgument(0);
+            completePartitions.add(new TopicPartition(testingTopic, completeRecord.partition()));
             return null;
-        }).when(policy).completeRecord(pendingRecord);
-        consumer.addRecord(pendingRecord);
+        }).when(policy).completeRecord(any());
+
+        // resume completed partitions
+        when(policy.tryCommit(anyMap())).thenReturn(completePartitions);
+
+        fireConsumerRecords(pendingRecords);
+
         fetcherThread.start();
 
+        await().until(() -> consumer.paused().size() == pendingRecords.size());
+        assertThat(consumer.paused()).isEqualTo(new HashSet<>(partitions));
+        // release all the message handler threads
         barrier.await();
+        // after the message was handled, the paused partition will be resumed eventually
+        await().until(() -> consumer.paused().isEmpty());
+
+        // close and verify
         fetcher.close();
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
-        assertThat(consumer.paused()).isEmpty();
+
+        verify(policy, times(pendingRecords.size())).addPendingRecord(any(), any());
+        verify(policy, times(pendingRecords.size())).completeRecord(any());
         verify(policy, times(1)).beforeClose(any());
-        verify(messageHandler, times(1)).handleMessage(testingTopic, testingMsg);
+        verify(messageHandler, times(pendingRecords.size())).handleMessage(testingTopic, defaultMsg);
 
         executors.shutdown();
     }
 
-    private void assignPartitions(List<Integer> partitions, List<Long> offsets) {
-        if (partitions.size() != offsets.size()) {
-            throw new IllegalArgumentException("partitions and offsets'size should be equal.");
-        }
+    private List<TopicPartition> toPartitions(List<Integer> partitions) {
+        return partitions
+                .stream()
+                .map(p -> new TopicPartition(testingTopic, p))
+                .collect(toList());
+    }
 
-        Map<TopicPartition, Long> partitionOffset = new HashMap<>();
-        for (int i = 0; i < partitions.size(); i++) {
-            partitionOffset.put(new TopicPartition(testingTopic, partitions.get(i)), offsets.get(i));
-        }
+    private void assignPartitions(List<TopicPartition> partitions, long offsets) {
+        final Map<TopicPartition, Long> partitionOffset = partitions
+                .stream()
+                .collect(toMap(Function.identity(), (p) -> offsets));
 
         consumer.addEndOffsets(partitionOffset);
         consumer.assign(partitionOffset.keySet());
+    }
+
+    private List<ConsumerRecord<Object, Object>> prepareConsumerRecords(Collection<TopicPartition> partitions, long offsetStart, int size) {
+        final List<ConsumerRecord<Object, Object>> records = new ArrayList<>();
+
+        for (TopicPartition partition : partitions) {
+            records.addAll(LongStream.range(offsetStart, offsetStart + size)
+                    .boxed()
+                    .map(offset -> new ConsumerRecord<>(
+                            testingTopic,
+                            partition.partition(),
+                            offset,
+                            defaultKey,
+                            defaultMsg))
+                    .collect(toList()));
+
+        }
+
+        return records;
+    }
+
+    private void fireConsumerRecords(Collection<ConsumerRecord<Object, Object>> records) {
+        for(ConsumerRecord<Object, Object> record : records) {
+            consumer.addRecord(record);
+        }
     }
 }
