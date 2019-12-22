@@ -26,25 +26,19 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
             return Collections.emptySet();
         }
 
-        final Set<TopicPartition> partitions;
+        final Set<TopicPartition> partitions = getCompletedPartitions(noPendingRecords);
         if (forceSync || pendingAsyncCommitCounter >= maxPendingAsyncCommits) {
             consumer.commitSync(completedTopicOffsets);
             pendingAsyncCommitCounter = 0;
             forceSync = false;
             completedTopicOffsets.clear();
             if (noPendingRecords) {
-                assert checkCompletedPartitions().equals(topicOffsetHighWaterMark.keySet())
-                        : "expect: " + checkCompletedPartitions() + " actual: " + topicOffsetHighWaterMark.keySet();
-                partitions = new HashSet<>(topicOffsetHighWaterMark.keySet());
                 topicOffsetHighWaterMark.clear();
             } else {
-                partitions = checkCompletedPartitions();
                 for (TopicPartition p : partitions) {
                     topicOffsetHighWaterMark.remove(p);
                 }
             }
-
-            return partitions;
         } else {
             ++pendingAsyncCommitCounter;
             consumer.commitAsync(completedTopicOffsets, (offsets, exception) -> {
@@ -62,8 +56,19 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
                     forceSync = true;
                 }
             });
-
-            return checkCompletedPartitions();
         }
+        return partitions;
+    }
+
+    private Set<TopicPartition> getCompletedPartitions(boolean noPendingRecords) {
+        final Set<TopicPartition> partitions;
+        if (noPendingRecords) {
+            assert checkCompletedPartitions().equals(topicOffsetHighWaterMark.keySet())
+                    : "expect: " + checkCompletedPartitions() + " actual: " + topicOffsetHighWaterMark.keySet();
+            partitions = new HashSet<>(topicOffsetHighWaterMark.keySet());
+        } else {
+            partitions = checkCompletedPartitions();
+        }
+        return partitions;
     }
 }
