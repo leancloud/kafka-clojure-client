@@ -91,7 +91,7 @@ public class FetcherTest {
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
         verify(policy, times(1)).partialCommit();
-        verify(policy, times(1)).addPendingRecord(eq(defaultTestingRecord), any());
+        verify(policy, times(1)).addPendingRecord(eq(defaultTestingRecord));
         verify(policy, never()).completeRecord(any());
         verify(policy, never()).tryCommit(anyBoolean());
         verify(messageHandler, times(1)).handleMessage(defaultTestingRecord);
@@ -118,7 +118,7 @@ public class FetcherTest {
         assertThat(fetcher.pendingFutures()).isEmpty();
         assertThat(consumer.paused()).isEmpty();
         verify(policy, times(1)).partialCommit();
-        verify(policy, times(1)).addPendingRecord(eq(defaultTestingRecord), any());
+        verify(policy, times(1)).addPendingRecord(eq(defaultTestingRecord));
         verify(policy, times(1)).completeRecord(defaultTestingRecord);
         verify(policy, atLeastOnce()).tryCommit(anyBoolean());
         verify(messageHandler, times(1)).handleMessage(defaultTestingRecord);
@@ -169,7 +169,7 @@ public class FetcherTest {
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
 
-        verify(policy, times(pendingRecords.size())).addPendingRecord(any(), any());
+        verify(policy, times(pendingRecords.size())).addPendingRecord(any());
         verify(policy, times(pendingRecords.size())).completeRecord(any());
         verify(policy, times(1)).partialCommit();
         verify(messageHandler, times(pendingRecords.size())).handleMessage(any());
@@ -228,7 +228,7 @@ public class FetcherTest {
         fetcherThread.join();
         assertThat(fetcher.pendingFutures()).isEmpty();
 
-        verify(policy, times(pendingRecords.size())).addPendingRecord(any(), any());
+        verify(policy, times(pendingRecords.size())).addPendingRecord(any());
         verify(policy, times(pendingRecords.size() / 2)).completeRecord(any());
         verify(policy, times(1)).partialCommit();
         verify(messageHandler, times(pendingRecords.size())).handleMessage(any());

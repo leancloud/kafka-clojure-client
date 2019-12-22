@@ -98,7 +98,7 @@ final class Fetcher<K, V> implements Runnable, Closeable {
                 return record;
             });
             pendingFutures.put(record, future);
-            policy.addPendingRecord(record, future);
+            policy.addPendingRecord(record);
         }
     }
 

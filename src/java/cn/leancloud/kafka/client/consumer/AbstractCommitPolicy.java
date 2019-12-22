@@ -5,8 +5,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
-import java.util.*;
-import java.util.concurrent.Future;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Comparator.comparing;
 import static java.util.function.BinaryOperator.maxBy;
@@ -24,7 +25,7 @@ abstract class AbstractCommitPolicy<K,V> implements CommitPolicy<K,V> {
     }
 
     @Override
-    public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
+    public void addPendingRecord(ConsumerRecord<K, V> record) {
         topicOffsetHighWaterMark.merge(
                 new TopicPartition(record.topic(), record.partition()),
                 record.offset() + 1,
@@ -57,6 +58,14 @@ abstract class AbstractCommitPolicy<K,V> implements CommitPolicy<K,V> {
                 .filter(entry -> topicOffsetMeetHighWaterMark(entry.getKey(), entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(toSet());
+    }
+
+    Map<TopicPartition, Long> topicOffsetHighWaterMark() {
+        return topicOffsetHighWaterMark;
+    }
+
+    Map<TopicPartition, OffsetAndMetadata> completedTopicOffsets() {
+        return completedTopicOffsets;
     }
 
     private boolean topicOffsetMeetHighWaterMark(TopicPartition topicPartition, OffsetAndMetadata offset) {

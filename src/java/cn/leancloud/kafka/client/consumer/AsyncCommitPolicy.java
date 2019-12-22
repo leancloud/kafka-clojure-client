@@ -23,7 +23,7 @@ final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
 
     @Override
     public Set<TopicPartition> tryCommit(boolean noPendingRecords) {
-        if (!noPendingRecords) {
+        if (!noPendingRecords || completedTopicOffsets.isEmpty()) {
             return Collections.emptySet();
         }
 

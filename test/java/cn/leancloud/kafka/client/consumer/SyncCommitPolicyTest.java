@@ -9,46 +9,32 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.IntStream;
-import java.util.stream.LongStream;
 
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static cn.leancloud.kafka.client.consumer.TestingUtils.*;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class SyncCommitPolicyTest {
-    private static final String testingTopic = "TestingTopic";
-    private static final Object defaultKey = new Object();
-    private static final Object defaultMsg = new Object();
-
     private MockConsumer<Object, Object> consumer;
     private SyncCommitPolicy<Object, Object> policy;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         consumer = new MockConsumer<>(OffsetResetStrategy.LATEST);
         policy = new SyncCommitPolicy<>(consumer);
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         consumer.close();
     }
 
     @Test
-    public void testTryCommitWhenThereExistsPendingRecords() {
+    public void testExistsPendingRecords() {
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
-        // one msg for each partitions
-        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
-        assignPartitions(consumer, partitions, 0L);
-        fireConsumerRecords(consumer, pendingRecords);
-        consumer.poll(0);
+        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareRecords(partitions);
         for (ConsumerRecord<Object, Object> record : pendingRecords) {
             policy.completeRecord(record);
         }
@@ -56,16 +42,14 @@ public class SyncCommitPolicyTest {
         for (TopicPartition partition : partitions) {
             assertThat(consumer.committed(partition)).isNull();
         }
+        assertThat(policy.completedTopicOffsets()).isNotEmpty();
+        assertThat(policy.topicOffsetHighWaterMark()).isNotEmpty();
     }
 
     @Test
     public void testTryCommitAll() {
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
-        // one msg for each partitions
-        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
-        assignPartitions(consumer, partitions, 0L);
-        fireConsumerRecords(consumer, pendingRecords);
-        consumer.poll(0);
+        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareRecords(partitions);
         for (ConsumerRecord<Object, Object> record : pendingRecords) {
             policy.completeRecord(record);
         }
@@ -73,54 +57,26 @@ public class SyncCommitPolicyTest {
         for (TopicPartition partition : partitions) {
             assertThat(consumer.committed(partition)).isEqualTo(new OffsetAndMetadata(2));
         }
+        assertThat(policy.completedTopicOffsets()).isEmpty();
+        assertThat(policy.topicOffsetHighWaterMark()).isEmpty();
     }
 
     @Test
-    public void testTryCommitWhenNoCompleteRecords() {
+    public void testNoCompleteRecords() {
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
-        // one msg for each partitions
-        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
-        assignPartitions(consumer, partitions, 0L);
-        fireConsumerRecords(consumer, pendingRecords);
-        consumer.poll(0);
+        prepareRecords(partitions);
         assertThat(policy.tryCommit(true)).isEmpty();
         for (TopicPartition partition : partitions) {
             assertThat(consumer.committed(partition)).isNull();
         }
     }
 
-    @Test
-    public void testTryCommitBeforeClose() {
-        final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
+    private List<ConsumerRecord<Object, Object>> prepareRecords(List<TopicPartition> partitions) {
         // one msg for each partitions
         final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
         assignPartitions(consumer, partitions, 0L);
         fireConsumerRecords(consumer, pendingRecords);
         consumer.poll(0);
-        for (ConsumerRecord<Object, Object> record : pendingRecords) {
-            policy.completeRecord(record);
-        }
-        policy.partialCommit();
-        for (TopicPartition partition : partitions) {
-            assertThat(consumer.committed(partition)).isEqualTo(new OffsetAndMetadata(2));
-        }
+        return pendingRecords;
     }
-
-    @Test
-    public void testTryCommitBeforeClose2() {
-        final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
-        // one msg for each partitions
-        final List<ConsumerRecord<Object, Object>> pendingRecords = prepareConsumerRecords(partitions, 1, 1);
-        assignPartitions(consumer, partitions, 0L);
-        fireConsumerRecords(consumer, pendingRecords);
-        consumer.poll(0);
-        for (ConsumerRecord<Object, Object> record : pendingRecords) {
-            policy.completeRecord(record);
-        }
-        policy.partialCommit();
-        for (TopicPartition partition : partitions) {
-            assertThat(consumer.committed(partition)).isEqualTo(new OffsetAndMetadata(2));
-        }
-    }
-
 }

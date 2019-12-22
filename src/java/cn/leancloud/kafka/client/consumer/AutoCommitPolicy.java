@@ -5,7 +5,6 @@ import org.apache.kafka.common.TopicPartition;
 
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.Future;
 
 final class AutoCommitPolicy<K, V> implements CommitPolicy<K, V> {
     private static final AutoCommitPolicy INSTANCE = new AutoCommitPolicy();
@@ -16,7 +15,7 @@ final class AutoCommitPolicy<K, V> implements CommitPolicy<K, V> {
     }
 
     @Override
-    public void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future) {
+    public void addPendingRecord(ConsumerRecord<K, V> record) {
 
     }
 

@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.concurrent.Future;
 
 public interface CommitPolicy<K, V> {
-    void addPendingRecord(ConsumerRecord<K, V> record, Future<ConsumerRecord<K, V>> future);
+    void addPendingRecord(ConsumerRecord<K, V> record);
 
     void completeRecord(ConsumerRecord<K, V> record);
 
