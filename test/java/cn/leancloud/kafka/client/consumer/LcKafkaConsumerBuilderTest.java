@@ -88,19 +88,19 @@ public class LcKafkaConsumerBuilderTest {
     }
 
     @Test
-    public void testNegativeMaxConsecutiveAsyncCommits() {
+    public void testNegativeMaxPendingAsyncCommits() {
         assertThatThrownBy(() -> LcKafkaConsumerBuilder.newBuilder(configs, testingHandler, keyDeserializer, valueDeserializer)
-                .maxConsecutiveAsyncCommits(-1 * ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE)))
+                .maxPendingAsyncCommits(-1 * ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("maxConsecutiveAsyncCommits");
+                .hasMessageContaining("maxPendingAsyncCommits");
     }
 
     @Test
-    public void testZeroMaxConsecutiveAsyncCommits() {
+    public void testZeroMaxPendingAsyncCommits() {
         assertThatThrownBy(() -> LcKafkaConsumerBuilder.newBuilder(configs, testingHandler, keyDeserializer, valueDeserializer)
-                .maxConsecutiveAsyncCommits(0))
+                .maxPendingAsyncCommits(0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("maxConsecutiveAsyncCommits");
+                .hasMessageContaining("maxPendingAsyncCommits");
     }
 
     @Test
@@ -158,7 +158,7 @@ public class LcKafkaConsumerBuilderTest {
         assertThatThrownBy(() -> LcKafkaConsumerBuilder.newBuilder(configs, testingHandler, keyDeserializer, valueDeserializer)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeoutMs(1000)
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, true)
                 .buildAuto())
                 .isInstanceOf(IllegalArgumentException.class)
@@ -174,7 +174,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeoutMs(1000)
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, false)
                 .buildAuto();
 
@@ -189,7 +189,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeout(Duration.ofMillis(1000))
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, false)
                 .buildSync();
 
@@ -204,7 +204,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeout(Duration.ofMillis(1000))
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .buildSync();
 
         assertThat(consumer).isNotNull();
@@ -218,7 +218,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeout(Duration.ofMillis(1000))
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, false)
                 .buildAsync();
 
@@ -233,7 +233,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeout(Duration.ofMillis(1000))
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, false)
                 .buildPartialSync();
 
@@ -248,7 +248,7 @@ public class LcKafkaConsumerBuilderTest {
         final LcKafkaConsumer<Object, Object> consumer = LcKafkaConsumerBuilder.newBuilder(configs, testingHandler)
                 .mockKafkaConsumer(new MockConsumer<>(OffsetResetStrategy.LATEST))
                 .pollTimeout(Duration.ofMillis(1000))
-                .maxConsecutiveAsyncCommits(100)
+                .maxPendingAsyncCommits(100)
                 .workerPool(workerPool, false)
                 .buildPartialAsync();
 

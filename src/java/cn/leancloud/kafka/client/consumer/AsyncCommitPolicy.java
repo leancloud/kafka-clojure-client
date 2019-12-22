@@ -12,13 +12,13 @@ import java.util.Set;
 final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(AsyncCommitPolicy.class);
 
-    private final int maxConsecutiveAsyncCommits;
-    private int consecutiveAsyncCommitCounter;
+    private final int maxPendingAsyncCommits;
+    private int pendingAsyncCommitCounter;
     private boolean forceSync;
 
-    AsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
+    AsyncCommitPolicy(Consumer<K, V> consumer, int maxPendingAsyncCommits) {
         super(consumer);
-        this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
+        this.maxPendingAsyncCommits = maxPendingAsyncCommits;
     }
 
     @Override
@@ -27,22 +27,26 @@ final class AsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
             return Collections.emptySet();
         }
 
-        if (forceSync || consecutiveAsyncCommitCounter >= maxConsecutiveAsyncCommits) {
+        if (forceSync || pendingAsyncCommitCounter >= maxPendingAsyncCommits) {
             consumer.commitSync();
-            consecutiveAsyncCommitCounter = 0;
+            pendingAsyncCommitCounter = 0;
             forceSync = false;
         } else {
+            ++pendingAsyncCommitCounter;
             consumer.commitAsync((offsets, exception) -> {
+                --pendingAsyncCommitCounter;
+                assert pendingAsyncCommitCounter >= 0 : "actual: " + pendingAsyncCommitCounter;
                 if (exception != null) {
-                    logger.warn("Failed to commit offset: " + offsets + " asynchronously", exception);
+                    logger.warn("Failed to commit offsets: " + offsets + " asynchronously", exception);
                     forceSync = true;
+
                 }
             });
-            ++consecutiveAsyncCommitCounter;
         }
 
         final Set<TopicPartition> partitions = new HashSet<>(completedTopicOffsets.keySet());
         completedTopicOffsets.clear();
+        topicOffsetHighWaterMark.clear();
         return partitions;
     }
 }

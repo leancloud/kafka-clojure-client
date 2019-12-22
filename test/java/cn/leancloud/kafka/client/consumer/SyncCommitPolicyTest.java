@@ -32,10 +32,11 @@ public class SyncCommitPolicyTest {
     }
 
     @Test
-    public void testExistsPendingRecords() {
+    public void testHavePendingRecords() {
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
         final List<ConsumerRecord<Object, Object>> pendingRecords = prepareRecords(partitions);
         for (ConsumerRecord<Object, Object> record : pendingRecords) {
+            policy.addPendingRecord(record);
             policy.completeRecord(record);
         }
         assertThat(policy.tryCommit(false)).isEmpty();
@@ -47,10 +48,21 @@ public class SyncCommitPolicyTest {
     }
 
     @Test
+    public void testNoCompleteRecords() {
+        final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
+        prepareRecords(partitions);
+        assertThat(policy.tryCommit(true)).isEmpty();
+        for (TopicPartition partition : partitions) {
+            assertThat(consumer.committed(partition)).isNull();
+        }
+    }
+
+    @Test
     public void testTryCommitAll() {
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
         final List<ConsumerRecord<Object, Object>> pendingRecords = prepareRecords(partitions);
         for (ConsumerRecord<Object, Object> record : pendingRecords) {
+            policy.addPendingRecord(record);
             policy.completeRecord(record);
         }
         assertThat(policy.tryCommit(true)).containsExactlyInAnyOrderElementsOf(partitions);
@@ -59,16 +71,6 @@ public class SyncCommitPolicyTest {
         }
         assertThat(policy.completedTopicOffsets()).isEmpty();
         assertThat(policy.topicOffsetHighWaterMark()).isEmpty();
-    }
-
-    @Test
-    public void testNoCompleteRecords() {
-        final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
-        prepareRecords(partitions);
-        assertThat(policy.tryCommit(true)).isEmpty();
-        for (TopicPartition partition : partitions) {
-            assertThat(consumer.committed(partition)).isNull();
-        }
     }
 
     private List<ConsumerRecord<Object, Object>> prepareRecords(List<TopicPartition> partitions) {

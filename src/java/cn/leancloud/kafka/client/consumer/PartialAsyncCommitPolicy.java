@@ -13,13 +13,13 @@ import java.util.Set;
 final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
 
-    private final int maxConsecutiveAsyncCommits;
-    private int consecutiveAsyncCommitCounter;
+    private final int maxPendingAsyncCommits;
+    private int pendingAsyncCommitCounter;
     private boolean forceSync;
 
-    PartialAsyncCommitPolicy(Consumer<K, V> consumer, int maxConsecutiveAsyncCommits) {
+    PartialAsyncCommitPolicy(Consumer<K, V> consumer, int maxPendingAsyncCommits) {
         super(consumer);
-        this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
+        this.maxPendingAsyncCommits = maxPendingAsyncCommits;
     }
 
     @Override
@@ -28,9 +28,9 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
             return Collections.emptySet();
         }
 
-        if (forceSync || consecutiveAsyncCommitCounter >= maxConsecutiveAsyncCommits) {
+        if (forceSync || pendingAsyncCommitCounter >= maxPendingAsyncCommits) {
             consumer.commitSync(completedTopicOffsets);
-            consecutiveAsyncCommitCounter = 0;
+            pendingAsyncCommitCounter = 0;
             forceSync = false;
             final Set<TopicPartition> partitions = checkCompletedPartitions();
             completedTopicOffsets.clear();
@@ -40,6 +40,7 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
             return partitions;
         } else {
             consumer.commitAsync(completedTopicOffsets, (offsets, exception) -> {
+                --pendingAsyncCommitCounter;
                 for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
                     completedTopicOffsets.remove(entry.getKey(), entry.getValue());
                     topicOffsetHighWaterMark.remove(entry.getKey(), entry.getValue().offset());
@@ -50,7 +51,7 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
                     forceSync = true;
                 }
             });
-            ++consecutiveAsyncCommitCounter;
+            ++pendingAsyncCommitCounter;
 
             return checkCompletedPartitions();
         }

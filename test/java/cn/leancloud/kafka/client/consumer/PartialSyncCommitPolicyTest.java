@@ -17,7 +17,6 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PartialSyncCommitPolicyTest {
-
     private MockConsumer<Object, Object> consumer;
     private PartialSyncCommitPolicy<Object, Object> policy;
 

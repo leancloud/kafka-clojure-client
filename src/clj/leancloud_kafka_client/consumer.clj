@@ -5,11 +5,11 @@
 (defn- create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                    worker-pool
                                                    shutdown-worker-pool-on-stop
-                                                   max-consecutive-async-commits
+                                                   max-pending-async-commits
                                                    key-serializer
                                                    value-serializer]
                                             :or   {poll-timeout-ms               100
-                                                   max-consecutive-async-commits 10}}]
+                                                   max-pending-async-commits 10}}]
   (let [builder (if (and key-serializer value-serializer)
                   (LcKafkaConsumerBuilder/newBuilder configs
                                                      msg-handler
@@ -20,7 +20,7 @@
     (.messageHandler builder msg-handler)
     (when worker-pool
       (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop true)))
-    (.maxConsecutiveAsyncCommits builder (int max-consecutive-async-commits))
+    (.maxConsecutiveAsyncCommits builder (int max-pending-async-commits))
     builder))
 
 (defn ^MessageHandler safety-net-message-handler

@@ -60,7 +60,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
     }
 
     private long pollTimeout = 100;
-    private int maxConsecutiveAsyncCommits = 10;
+    private int maxPendingAsyncCommits = 10;
     private Map<String, Object> configs;
     private MessageHandler<K, V> messageHandler;
     @Nullable
@@ -134,18 +134,17 @@ public final class LcKafkaConsumerBuilder<K, V> {
         return this;
     }
 
-    // todo: change this to max pending async commits
     /**
      * When using async consumer to commit offset asynchronously, this argument can force consumer to do a synchronous
-     * commit after {@code maxConsecutiveAsyncCommits} async commits.
+     * commit after there's already {@code maxPendingAsyncCommits} async commits on the fly without response from broker.
      *
-     * @param maxConsecutiveAsyncCommits do a synchronous commit after this many async commits
+     * @param maxPendingAsyncCommits do a synchronous commit when pending async commits beyond this limit
      * @return this
      */
-    public LcKafkaConsumerBuilder<K, V> maxConsecutiveAsyncCommits(int maxConsecutiveAsyncCommits) {
-        requireArgument(maxConsecutiveAsyncCommits > 0,
-                "maxConsecutiveAsyncCommits: %s (expect > 0)", maxConsecutiveAsyncCommits);
-        this.maxConsecutiveAsyncCommits = maxConsecutiveAsyncCommits;
+    public LcKafkaConsumerBuilder<K, V> maxPendingAsyncCommits(int maxPendingAsyncCommits) {
+        requireArgument(maxPendingAsyncCommits > 0,
+                "maxPendingAsyncCommits: %s (expect > 0)", maxPendingAsyncCommits);
+        this.maxPendingAsyncCommits = maxPendingAsyncCommits;
         return this;
     }
 
@@ -244,13 +243,13 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildAsync() {
         consumer = buildConsumer(false);
-        policy = new AsyncCommitPolicy<>(consumer, maxConsecutiveAsyncCommits);
+        policy = new AsyncCommitPolicy<>(consumer, maxPendingAsyncCommits);
         return doBuild();
     }
 
     public <K1 extends K, V1 extends V> LcKafkaConsumer<K1, V1> buildPartialAsync() {
         consumer = buildConsumer(false);
-        policy = new PartialAsyncCommitPolicy<>(consumer, maxConsecutiveAsyncCommits);
+        policy = new PartialAsyncCommitPolicy<>(consumer, maxPendingAsyncCommits);
         return doBuild();
     }
 
