@@ -13,9 +13,7 @@ public interface CommitPolicy<K, V> {
 
     void completeRecord(ConsumerRecord<K, V> record);
 
-    Set<TopicPartition> tryCommit(Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures);
+    Set<TopicPartition> tryCommit(boolean noPendingRecords);
 
-    void beforeClose(Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures);
-
-    void onPartitionRevoked(Collection<TopicPartition> partitions, Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures);
+    Set<TopicPartition> partialCommit();
 }

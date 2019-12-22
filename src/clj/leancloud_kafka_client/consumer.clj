@@ -1,5 +1,6 @@
 (ns leancloud-kafka-client.consumer
-  (:import (cn.leancloud.kafka.client.consumer LcKafkaConsumerBuilder LcKafkaConsumer SafetyNetMessageHandler TriConsumer RetriableMessageHandler MessageHandler)))
+  (:import (cn.leancloud.kafka.client.consumer LcKafkaConsumerBuilder LcKafkaConsumer SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
+           (java.util.function BiConsumer)))
 
 (defn- create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                    worker-pool
@@ -25,9 +26,9 @@
 (defn ^MessageHandler safety-net-message-handler
   ([handler] (SafetyNetMessageHandler. handler))
   ([handler error-consumer]
-   (SafetyNetMessageHandler. handler (reify TriConsumer
-                                       (accept [_ topic value throwable]
-                                         (error-consumer topic value throwable))))))
+   (SafetyNetMessageHandler. handler (reify BiConsumer
+                                       (accept [_ record]
+                                         (error-consumer record throwable))))))
 
 (defn ^MessageHandler retriable-message-handler [handler max-retry-times]
   (RetriableMessageHandler. handler max-retry-times))

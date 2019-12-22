@@ -56,7 +56,7 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
             throw new IllegalStateException("client is in " + state + " state. expect: " + State.INIT);
         }
 
-        consumer.subscribe(topics, new RebalanceListener<>(fetcher, policy));
+        consumer.subscribe(topics, new RebalanceListener<>(consumer, policy));
 
         final String firstTopic = topics.iterator().next();
         fetcherThread.setName("kafka-fetcher-for-" + firstTopic + (topics.size() > 1 ? "..." : ""));

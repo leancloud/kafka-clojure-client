@@ -114,14 +114,14 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     }
 
     private void tryCommitRecordOffsets() {
-        final Set<TopicPartition> partitions = policy.tryCommit(pendingFutures);
+        final Set<TopicPartition> partitions = policy.tryCommit(pendingFutures.isEmpty());
         if (!partitions.isEmpty()) {
             consumer.resume(partitions);
         }
     }
 
     private void gracefulShutdown() {
-        policy.beforeClose(pendingFutures);
+        policy.partialCommit();
         for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
             future.cancel(false);
         }
