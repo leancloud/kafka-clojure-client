@@ -10,12 +10,15 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toSet;
 
 final class RebalanceListener<K, V> implements ConsumerRebalanceListener {
     private static final Logger logger = LoggerFactory.getLogger(RebalanceListener.class);
 
     private final CommitPolicy<K, V> policy;
-    private final Consumer<K,V> consumer;
+    private final Consumer<K, V> consumer;
     private Set<TopicPartition> pausedPartitions;
 
     RebalanceListener(Consumer<K, V> consumer, CommitPolicy<K, V> policy) {
@@ -37,7 +40,13 @@ final class RebalanceListener<K, V> implements ConsumerRebalanceListener {
         logger.info("Partitions was assigned {}", partitions);
 
         if (!pausedPartitions.isEmpty()) {
-            consumer.pause(pausedPartitions);
+            final Set<TopicPartition> partitionToPause = partitions
+                    .stream()
+                    .filter(p -> pausedPartitions.contains(p))
+                    .collect(toSet());
+            logger.info("Pause previous paused partitions: {}", partitionToPause);
+            consumer.pause(partitionToPause);
+            pausedPartitions = Collections.emptySet();
         }
     }
 }
