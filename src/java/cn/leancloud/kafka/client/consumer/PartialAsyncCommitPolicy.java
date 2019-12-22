@@ -6,9 +6,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(PartialAsyncCommitPolicy.class);
@@ -28,20 +26,33 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
             return Collections.emptySet();
         }
 
+        final Set<TopicPartition> partitions;
         if (forceSync || pendingAsyncCommitCounter >= maxPendingAsyncCommits) {
             consumer.commitSync(completedTopicOffsets);
             pendingAsyncCommitCounter = 0;
             forceSync = false;
-            final Set<TopicPartition> partitions = checkCompletedPartitions();
             completedTopicOffsets.clear();
-            for (TopicPartition p : partitions) {
-                topicOffsetHighWaterMark.remove(p);
+            if (noPendingRecords) {
+                assert checkCompletedPartitions().equals(topicOffsetHighWaterMark.keySet())
+                        : "expect: " + checkCompletedPartitions() + " actual: " + topicOffsetHighWaterMark.keySet();
+                partitions = new HashSet<>(topicOffsetHighWaterMark.keySet());
+                topicOffsetHighWaterMark.clear();
+            } else {
+                partitions = checkCompletedPartitions();
+                for (TopicPartition p : partitions) {
+                    topicOffsetHighWaterMark.remove(p);
+                }
             }
+
             return partitions;
         } else {
+            ++pendingAsyncCommitCounter;
             consumer.commitAsync(completedTopicOffsets, (offsets, exception) -> {
                 --pendingAsyncCommitCounter;
-                for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
+                assert pendingAsyncCommitCounter >= 0 : "actual: " + pendingAsyncCommitCounter;
+                final Map<TopicPartition, OffsetAndMetadata> completeOffsets =
+                        offsets == completedTopicOffsets ? new HashMap<>(offsets) : offsets;
+                for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : completeOffsets.entrySet()) {
                     completedTopicOffsets.remove(entry.getKey(), entry.getValue());
                     topicOffsetHighWaterMark.remove(entry.getKey(), entry.getValue().offset());
                 }
@@ -51,7 +62,6 @@ final class PartialAsyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
                     forceSync = true;
                 }
             });
-            ++pendingAsyncCommitCounter;
 
             return checkCompletedPartitions();
         }
