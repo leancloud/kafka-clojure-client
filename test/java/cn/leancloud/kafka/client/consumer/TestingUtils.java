@@ -14,10 +14,10 @@ import java.util.stream.LongStream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-public class TestingUtils {
-    private static final String testingTopic = "TestingTopic";
-    private static final Object defaultKey = new Object();
-    private static final Object defaultMsg = new Object();
+class TestingUtils {
+    static final String testingTopic = "TestingTopic";
+    static final Object defaultKey = new Object();
+    static final Object defaultMsg = new Object();
 
     static List<TopicPartition> toPartitions(List<Integer> partitions) {
         return partitions

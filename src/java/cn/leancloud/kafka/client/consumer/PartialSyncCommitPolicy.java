@@ -22,7 +22,7 @@ final class PartialSyncCommitPolicy<K, V> extends AbstractCommitPolicy<K, V> {
 
         final Set<TopicPartition> partitions;
         if (noPendingRecords) {
-            assert checkCompletedPartitions() == topicOffsetHighWaterMark.keySet()
+            assert checkCompletedPartitions().equals(topicOffsetHighWaterMark.keySet())
                     : "expect: " + checkCompletedPartitions() + " actual: " + topicOffsetHighWaterMark.keySet();
             partitions = new HashSet<>(topicOffsetHighWaterMark.keySet());
             completedTopicOffsets.clear();

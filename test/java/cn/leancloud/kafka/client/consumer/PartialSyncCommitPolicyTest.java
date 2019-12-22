@@ -85,7 +85,7 @@ public class PartialSyncCommitPolicyTest {
             policy.completeRecord(record);
         }
 
-        assertThat(policy.tryCommit(false))
+        assertThat(policy.tryCommit(true))
                 .hasSize(partitions.size())
                 .containsExactlyInAnyOrderElementsOf(partitions);
         for (TopicPartition partition : partitions) {
