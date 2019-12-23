@@ -12,11 +12,8 @@ interface KafkaConfigs {
 
     boolean required();
 
-    default Map<String, Object> set(Map<String, Object> configs, Object value) {
-        final Map<String, Object> newConfigs = new HashMap<>(configs);
-
-        newConfigs.put(configName(), value);
-        return newConfigs;
+    default void set(Map<String, Object> configs, Object value) {
+        configs.put(configName(), value);
     }
 
     default <T> T get(Map<String, Object> configs) {

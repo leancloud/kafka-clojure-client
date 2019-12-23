@@ -7,6 +7,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +30,9 @@ public final class LcKafkaConsumerBuilder<K, V> {
      */
     public static <K, V> LcKafkaConsumerBuilder<K, V> newBuilder(Map<String, Object> kafkaConfigs,
                                                                  MessageHandler<K, V> messageHandler) {
-        return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler);
+        requireNonNull(kafkaConfigs, "kafkaConfigs");
+        requireNonNull(messageHandler, "messageHandler");
+        return new LcKafkaConsumerBuilder<>(new HashMap<>(kafkaConfigs), messageHandler);
     }
 
     /**
@@ -47,7 +50,11 @@ public final class LcKafkaConsumerBuilder<K, V> {
                                                                  MessageHandler<K, V> messageHandler,
                                                                  Deserializer<K> keyDeserializer,
                                                                  Deserializer<V> valueDeserializer) {
-        return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler, keyDeserializer, valueDeserializer);
+        requireNonNull(kafkaConfigs, "kafkaConfigs");
+        requireNonNull(messageHandler, "messageHandler");
+        requireNonNull(keyDeserializer, "keyDeserializer");
+        requireNonNull(valueDeserializer, "valueDeserializer");
+        return new LcKafkaConsumerBuilder<>(new HashMap<>(kafkaConfigs), messageHandler, keyDeserializer, valueDeserializer);
     }
 
     /**
@@ -77,21 +84,15 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
                                    MessageHandler<K, V> messageHandler) {
-        requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
-        requireNonNull(messageHandler, "messageHandler");
-        this.configs = kafkaConsumerConfigs;
-        this.messageHandler = messageHandler;
+        this(kafkaConsumerConfigs, messageHandler, null, null);
     }
 
     private LcKafkaConsumerBuilder(Map<String, Object> kafkaConsumerConfigs,
                                    MessageHandler<K, V> messageHandler,
+                                   @Nullable
                                    Deserializer<K> keyDeserializer,
+                                   @Nullable
                                    Deserializer<V> valueDeserializer) {
-        requireNonNull(kafkaConsumerConfigs, "kafkaConsumerConfigs");
-        requireNonNull(messageHandler, "messageHandler");
-        requireNonNull(keyDeserializer, "keyDeserializer");
-        requireNonNull(valueDeserializer, "valueDeserializer");
-
         this.configs = kafkaConsumerConfigs;
         this.messageHandler = messageHandler;
         this.keyDeserializer = keyDeserializer;
@@ -167,6 +168,10 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @return this
      */
     LcKafkaConsumerBuilder<K, V> mockKafkaConsumer(Consumer<K, V> consumer) {
+        requireNonNull(consumer, "consumer");
+        if (consumer instanceof KafkaConsumer) {
+            throw new IllegalArgumentException("need a mocked Consumer");
+        }
         this.consumer = consumer;
         return this;
     }
@@ -282,7 +287,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
-        configs = ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
+        ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
         if (keyDeserializer != null) {
             assert valueDeserializer != null;
         } else {
