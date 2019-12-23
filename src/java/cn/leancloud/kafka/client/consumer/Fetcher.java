@@ -116,7 +116,16 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     private void tryCommitRecordOffsets() {
         final Set<TopicPartition> partitions = policy.tryCommit(pendingFutures.isEmpty());
         if (!partitions.isEmpty()) {
-            consumer.resume(partitions);
+            // `partitions` may have some revoked partitions so resume may throws IllegalStateException.
+            // But rebalance is comparatively rare on production environment. So here we
+            // try the optimised way first, if we got any IllegalStateException, we clean the revoked
+            // partitions out of `partitions` and retry resume.
+            try {
+                consumer.resume(partitions);
+            } catch (IllegalStateException ex) {
+                partitions.retainAll(consumer.assignment());
+                consumer.resume(partitions);
+            }
         }
     }
 

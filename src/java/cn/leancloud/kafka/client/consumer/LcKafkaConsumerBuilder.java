@@ -17,7 +17,7 @@ import static cn.leancloud.kafka.client.consumer.BasicConsumerConfigs.ENABLE_AUT
 import static java.util.Objects.requireNonNull;
 
 public final class LcKafkaConsumerBuilder<K, V> {
-    private static final ThreadFactory threadFactory = new NamedThreadFactory("lc-kafka-consumer-task-worker-pool");
+    private static final ThreadFactory threadFactory = new NamedThreadFactory("lc-kafka-consumer-task-worker-pool-");
 
     /**
      * Create a {@code LcKafkaConsumerBuilder} used to build {@link LcKafkaConsumer}.

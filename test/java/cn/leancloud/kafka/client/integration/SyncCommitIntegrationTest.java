@@ -23,15 +23,15 @@ public class SyncCommitIntegrationTest implements Closeable {
 
     public static void main(String[] args) throws Exception {
         try (SyncCommitIntegrationTest test = new SyncCommitIntegrationTest()) {
-            test.runSingleConsumerTest();
-
-            test.runTwoConsumersInSameGroupTest();
+//            test.runSingleConsumerTest();
+//
+//            test.runTwoConsumersInSameGroupTest();
 
             test.runJoinGroupTest();
         }
     }
 
-    private TestingProducer producer = new TestingProducer(Duration.ofMillis(100), 4);
+    private TestingProducer producer = new TestingProducer(Duration.ofMillis(100), 1);
     private LongAdder receiveRecordsCounter = new LongAdder();
     private String topic;
 
@@ -88,18 +88,20 @@ public class SyncCommitIntegrationTest implements Closeable {
     private void runJoinGroupTest() throws Exception {
         final AtomicBoolean stopProducer = new AtomicBoolean();
         final CompletableFuture<Integer> producerSentCountFuture = producer.startNonStopTest(topic, stopProducer);
+        final LcKafkaConsumer<Integer, String> lingerConsumer = createConsumer("linger-consumer");
+        lingerConsumer.subscribe(Collections.singletonList(topic));
 
-        List<LcKafkaConsumer<Integer, String>> consumers = new ArrayList<>();
-        for (int i = 0; i < 5; ++i) {
+        List<LcKafkaConsumer<Integer, String>> postJoinConsumers = new ArrayList<>();
+        for (int i = 0; i < 2; ++i) {
             final LcKafkaConsumer<Integer, String> consumer = createConsumer("consumer" + i);
             consumer.subscribe(Collections.singletonList(topic));
-            consumers.add(consumer);
-            Thread.sleep(1000);
+            postJoinConsumers.add(consumer);
+            Thread.sleep(2000);
         }
 
-        for (LcKafkaConsumer<Integer, String> consumer : consumers) {
+        for (LcKafkaConsumer<Integer, String> consumer : postJoinConsumers) {
             consumer.close();
-            Thread.sleep(1000);
+            Thread.sleep(2000);
         }
 
         stopProducer.set(true);
@@ -114,6 +116,7 @@ public class SyncCommitIntegrationTest implements Closeable {
         } catch (Exception ex) {
             logger.error("Integration test got unexpected exception. sent: {}, received: {}", totalSent, receiveRecordsCounter.sum(), ex);
         } finally {
+            lingerConsumer.close();
             receiveRecordsCounter.reset();
         }
     }
