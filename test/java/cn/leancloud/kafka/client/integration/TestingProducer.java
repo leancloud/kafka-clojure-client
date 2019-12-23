@@ -17,7 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 public class TestingProducer implements Closeable {
     private static final Logger logger = LoggerFactory.getLogger(TestingProducer.class);
@@ -58,7 +60,7 @@ public class TestingProducer implements Closeable {
         final AtomicInteger totalSentCount = new AtomicInteger();
         final Instant end = Instant.now().plus(testingTime);
         for (int i = 0; i < concurrentThreadCount; ++i) {
-            final ProducerWorker worker = new ProducerWorker(topic, end);
+            final ProducerWorker worker = new ProducerWorker(topic, p -> Instant.now().isAfter(end));
             final Thread t = new Thread(worker);
             workerThreads.add(t);
             worker.future.thenApply(c -> {
@@ -75,13 +77,12 @@ public class TestingProducer implements Closeable {
         return future;
     }
 
-    CompletableFuture<Integer> startNonStopTest(String topic, Duration testingTime) throws Exception {
+    CompletableFuture<Integer> startNonStopTest(String topic, AtomicBoolean stopMark) throws Exception {
         final CompletableFuture<Integer> future = new CompletableFuture<>();
         final AtomicInteger finishedWorkerCount = new AtomicInteger();
         final AtomicInteger totalSentCount = new AtomicInteger();
-        final Instant end = Instant.now().plus(testingTime);
         for (int i = 0; i < concurrentThreadCount; ++i) {
-            final ProducerWorker worker = new ProducerWorker(topic, end);
+            final ProducerWorker worker = new ProducerWorker(topic, p -> stopMark.get());
             final Thread t = new Thread(worker);
             workerThreads.add(t);
             worker.future.thenApply(c -> {
@@ -99,14 +100,14 @@ public class TestingProducer implements Closeable {
     }
 
     private class ProducerWorker implements Runnable {
-        private final Instant end;
+        private final Predicate<ProducerWorker> needStop;
         private final String topic;
         private final CompletableFuture<Integer> future;
         private int sentCount;
 
-        ProducerWorker(String topic, Instant end) {
+        ProducerWorker(String topic, Predicate<ProducerWorker> needStop) {
             this.topic = topic;
-            this.end = end;
+            this.needStop = needStop;
             this.future = new CompletableFuture<>();
         }
 
@@ -115,13 +116,13 @@ public class TestingProducer implements Closeable {
             try {
                 final String topic = this.topic;
                 final String name = Thread.currentThread().getName();
-                final Instant end = this.end;
+                final Predicate<ProducerWorker> needStop = this.needStop;
                 final Producer<Integer, String> producer = TestingProducer.this.producer;
                 final long intervalMs = TestingProducer.this.sendInterval.toMillis();
                 barrier.await();
                 logger.info("Producer worker: {} started", name);
                 int index = 0;
-                while (!closed && Instant.now().isBefore(end)) {
+                while (!closed && !needStop.test(this)) {
                     final ProducerRecord<Integer, String> record = new ProducerRecord<>(topic, index, name + "-" + index++);
                     producer.send(record, (metadata, exception) -> {
                         if (exception != null) {
