@@ -32,7 +32,9 @@ final class RebalanceListener<K, V> implements ConsumerRebalanceListener {
         logger.info("Partitions was revoked {}", partitions);
 
         pausedPartitions = consumer.paused();
-        pausedPartitions.removeAll(policy.partialCommit());
+        if (!pausedPartitions.isEmpty()) {
+            pausedPartitions.removeAll(policy.partialCommit());
+        }
     }
 
     @Override

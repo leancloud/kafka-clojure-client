@@ -27,8 +27,8 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @param messageHandler a {@link MessageHandler} to handle the consumed msg from kafka
      * @return a new {@code LcKafkaConsumerBuilder}
      */
-    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
-                                                                    MessageHandler<Object, Object> messageHandler) {
+    public static <K, V> LcKafkaConsumerBuilder<K, V> newBuilder(Map<String, Object> kafkaConfigs,
+                                                                 MessageHandler<K, V> messageHandler) {
         return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler);
     }
 
@@ -43,10 +43,10 @@ public final class LcKafkaConsumerBuilder<K, V> {
      * @param valueDeserializer The deserializer for value that implements {@link Deserializer}
      * @return a new {@code LcKafkaConsumerBuilder}
      */
-    public static LcKafkaConsumerBuilder<Object, Object> newBuilder(Map<String, Object> kafkaConfigs,
-                                                                    MessageHandler<Object, Object> messageHandler,
-                                                                    Deserializer<Object> keyDeserializer,
-                                                                    Deserializer<Object> valueDeserializer) {
+    public static <K, V> LcKafkaConsumerBuilder<K, V> newBuilder(Map<String, Object> kafkaConfigs,
+                                                                 MessageHandler<K, V> messageHandler,
+                                                                 Deserializer<K> keyDeserializer,
+                                                                 Deserializer<V> valueDeserializer) {
         return new LcKafkaConsumerBuilder<>(kafkaConfigs, messageHandler, keyDeserializer, valueDeserializer);
     }
 
@@ -206,7 +206,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
      *  <li><code>max.poll.interval.ms</code></li>
      *  <li><code>max.poll.records</code></li>
      *  <li><code>auto.commit.interval.ms</code></li>
-     *  </ol>
+     * </ol>
      * <p>
      * Though all of these configs have default values in kafka, we still require every user to set them specifically.
      * Because these configs is vital for using this consumer safely. You should tune them to ensure the polling thread
@@ -283,7 +283,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
     private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
         ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
-        if ( keyDeserializer != null)  {
+        if (keyDeserializer != null) {
             assert valueDeserializer != null;
         } else {
             assert valueDeserializer == null;

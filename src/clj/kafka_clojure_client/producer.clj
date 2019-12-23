@@ -1,4 +1,4 @@
-(ns leancloud-kafka-client.producer
+(ns kafka-clojure-client.producer
   (:refer-clojure :exclude [flush send])
   (:import (java.util.concurrent Future TimeUnit)
            (org.apache.kafka.clients.producer ProducerRecord KafkaProducer Producer Callback)

@@ -1,4 +1,4 @@
-(ns leancloud-kafka-client.consumer
+(ns kafka-clojure-client.consumer
   (:import (cn.leancloud.kafka.client.consumer LcKafkaConsumerBuilder LcKafkaConsumer SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
            (java.util.function BiConsumer)))
 
@@ -38,7 +38,7 @@
     (handleMessage [_ record]
       (handler-fn record))))
 
-(defn to-only-value-message-handler [handler-fn]
+(defn to-value-only-message-handler [handler-fn]
   (reify MessageHandler
     (handleMessage [_ record]
       (handler-fn (.value record)))))

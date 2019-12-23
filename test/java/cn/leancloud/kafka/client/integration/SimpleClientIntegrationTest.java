@@ -55,14 +55,14 @@ public class SimpleClientIntegrationTest {
         client.subscribe(Collections.singletonList(topic));
 
 
-        TestingProducer producer = new TestingProducer(topic, Duration.ofMillis(100), 4, Duration.ofSeconds(10));
+        TestingProducer producer = new TestingProducer(Duration.ofMillis(100), 4);
+        producer.startFixedDurationTest(topic, Duration.ofSeconds(9)).get();
 
         try {
             Thread.sleep(10000);
         } catch (Exception ex) {
 
         }
-        System.out.println(producer.sent());
         System.out.println(adder.sumThenReset());
         client.close();
     }

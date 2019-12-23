@@ -9,82 +9,132 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestingProducer implements Closeable {
     private static final Logger logger = LoggerFactory.getLogger(TestingProducer.class);
 
-    private LongAdder counter;
     private Duration sendInterval;
-    private Instant end;
+    private int concurrentThreadCount;
     private Producer<Integer, String> producer;
-    private String topic;
     private CyclicBarrier barrier;
+    private List<Thread> workerThreads;
     private volatile boolean closed;
 
-    public TestingProducer(String topic, Duration sendInterval, int concurrentThreadCount, Duration testingTime) throws Exception {
-        this.topic = topic;
-        this.counter = new LongAdder();
+    TestingProducer(Duration sendInterval, int concurrentThreadCount) {
         this.sendInterval = sendInterval;
-        this.end = Instant.now().plus(testingTime);
+        this.concurrentThreadCount = concurrentThreadCount;
+        this.workerThreads = new ArrayList<>();
 
         final Map<String, Object> configs = new HashMap<>();
         configs.put("bootstrap.servers", "localhost:9092");
         this.producer = new KafkaProducer<>(configs, new IntegerSerializer(), new StringSerializer());
         this.barrier = new CyclicBarrier(concurrentThreadCount + 1);
-        for (int i = 0; i < concurrentThreadCount; ++i) {
-            final Thread t = new Thread(new ProducerWorker());
-            t.start();
-        }
-        barrier.await();
-    }
-
-    public CompletableFuture<Void> startTest() {
-        return null;
-    }
-
-    public long sent() {
-        return counter.sumThenReset();
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         closed = true;
         try {
-            barrier.await();
+            for (Thread t : workerThreads) {
+                t.join();
+            }
         } catch (Exception ex) {
             //
         }
     }
 
+    CompletableFuture<Integer> startFixedDurationTest(String topic, Duration testingTime) throws Exception {
+        final CompletableFuture<Integer> future = new CompletableFuture<>();
+        final AtomicInteger finishedWorkerCount = new AtomicInteger();
+        final AtomicInteger totalSentCount = new AtomicInteger();
+        final Instant end = Instant.now().plus(testingTime);
+        for (int i = 0; i < concurrentThreadCount; ++i) {
+            final ProducerWorker worker = new ProducerWorker(topic, end);
+            final Thread t = new Thread(worker);
+            workerThreads.add(t);
+            worker.future.thenApply(c -> {
+                int total = totalSentCount.addAndGet(c);
+                if (finishedWorkerCount.incrementAndGet() == concurrentThreadCount) {
+                    future.complete(total);
+                }
+                return total;
+            });
+            t.start();
+        }
+
+        barrier.await();
+        return future;
+    }
+
+    CompletableFuture<Integer> startNonStopTest(String topic, Duration testingTime) throws Exception {
+        final CompletableFuture<Integer> future = new CompletableFuture<>();
+        final AtomicInteger finishedWorkerCount = new AtomicInteger();
+        final AtomicInteger totalSentCount = new AtomicInteger();
+        final Instant end = Instant.now().plus(testingTime);
+        for (int i = 0; i < concurrentThreadCount; ++i) {
+            final ProducerWorker worker = new ProducerWorker(topic, end);
+            final Thread t = new Thread(worker);
+            workerThreads.add(t);
+            worker.future.thenApply(c -> {
+                int total = totalSentCount.addAndGet(c);
+                if (finishedWorkerCount.incrementAndGet() == concurrentThreadCount) {
+                    future.complete(total);
+                }
+                return total;
+            });
+            t.start();
+        }
+
+        barrier.await();
+        return future;
+    }
+
     private class ProducerWorker implements Runnable {
+        private final Instant end;
+        private final String topic;
+        private final CompletableFuture<Integer> future;
+        private int sentCount;
+
+        ProducerWorker(String topic, Instant end) {
+            this.topic = topic;
+            this.end = end;
+            this.future = new CompletableFuture<>();
+        }
+
         @Override
         public void run() {
             try {
-                final LongAdder counter = TestingProducer.this.counter;
+                final String topic = this.topic;
                 final String name = Thread.currentThread().getName();
-                final Instant end = TestingProducer.this.end;
+                final Instant end = this.end;
+                final Producer<Integer, String> producer = TestingProducer.this.producer;
                 final long intervalMs = TestingProducer.this.sendInterval.toMillis();
                 barrier.await();
+                logger.info("Producer worker: {} started", name);
                 int index = 0;
                 while (!closed && Instant.now().isBefore(end)) {
-
                     final ProducerRecord<Integer, String> record = new ProducerRecord<>(topic, index, name + "-" + index++);
                     producer.send(record, (metadata, exception) -> {
+                        if (exception != null) {
+                            logger.error("Produce record failed", exception);
+                            closed = true;
+                        }
                     });
-
-                    counter.increment();
-
+                    ++sentCount;
                     Thread.sleep(intervalMs);
                 }
-                barrier.await();
+
+                future.complete(sentCount);
+                logger.info("Producer worker: {} stopped", name);
             } catch (Exception ex) {
                 logger.error("Producer worker got unexpected exception", ex);
             }
