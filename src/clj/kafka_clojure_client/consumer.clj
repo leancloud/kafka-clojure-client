@@ -2,7 +2,7 @@
   (:import (cn.leancloud.kafka.client.consumer LcKafkaConsumerBuilder LcKafkaConsumer SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
            (java.util.function BiConsumer)))
 
-(defn- create-builder [configs msg-handler {:keys [poll-timeout-ms
+(defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                    worker-pool
                                                    shutdown-worker-pool-on-stop
                                                    max-pending-async-commits
@@ -20,14 +20,14 @@
     (.messageHandler builder msg-handler)
     (when worker-pool
       (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop true)))
-    (.maxConsecutiveAsyncCommits builder (int max-pending-async-commits))
+    (.maxPendingAsyncCommits builder (int max-pending-async-commits))
     builder))
 
 (defn ^MessageHandler safety-net-message-handler
   ([handler] (SafetyNetMessageHandler. handler))
   ([handler error-consumer]
    (SafetyNetMessageHandler. handler (reify BiConsumer
-                                       (accept [_ record]
+                                       (accept [_ record throwable]
                                          (error-consumer record throwable))))))
 
 (defn ^MessageHandler retriable-message-handler [handler max-retry-times]

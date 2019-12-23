@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class PartialAsyncCommitPolicyTest {
-    private static final int defaultMaxConsecutiveAsyncCommits = 10;
+    private static final int defaultMaxPendingAsyncCommits = 10;
     private MockConsumer<Object, Object> consumer;
     private PartialAsyncCommitPolicy<Object, Object> policy;
     private List<TopicPartition> partitions;
@@ -27,7 +27,7 @@ public class PartialAsyncCommitPolicyTest {
     @Before
     public void setUp() {
         consumer = new MockConsumer<>(OffsetResetStrategy.LATEST);
-        policy = new PartialAsyncCommitPolicy<>(consumer, defaultMaxConsecutiveAsyncCommits);
+        policy = new PartialAsyncCommitPolicy<>(consumer, defaultMaxPendingAsyncCommits);
         partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
         pendingRecords = preparePendingRecords(partitions, 1);
     }

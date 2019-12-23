@@ -20,7 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class AsyncCommitPolicyTest {
-    private static final int defaultMaxConsecutiveAsyncCommits = 10;
+    private static final int defaultMaxPendingAsyncCommits = 10;
     private MockConsumer<Object, Object> consumer;
     private AsyncCommitPolicy<Object, Object> policy;
     private List<TopicPartition> partitions;
@@ -29,7 +29,7 @@ public class AsyncCommitPolicyTest {
     @Before
     public void setUp() {
         consumer = new MockConsumer<>(OffsetResetStrategy.LATEST);
-        policy = new AsyncCommitPolicy<>(consumer, defaultMaxConsecutiveAsyncCommits);
+        policy = new AsyncCommitPolicy<>(consumer, defaultMaxPendingAsyncCommits);
         partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
         pendingRecords = prepareRecords(partitions);
     }
