@@ -3,18 +3,18 @@
            (java.util.function BiConsumer)))
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
-                                                   worker-pool
-                                                   shutdown-worker-pool-on-stop
-                                                   max-pending-async-commits
-                                                   key-serializer
-                                                   value-serializer]
-                                            :or   {poll-timeout-ms               100
-                                                   max-pending-async-commits 10}}]
-  (let [builder (if (and key-serializer value-serializer)
+                                                                           worker-pool
+                                                                           shutdown-worker-pool-on-stop
+                                                                           max-pending-async-commits
+                                                                           key-deserializer
+                                                                           value-deserializer]
+                                                                    :or   {poll-timeout-ms           100
+                                                                           max-pending-async-commits 10}}]
+  (let [builder (if (and key-deserializer value-deserializer)
                   (LcKafkaConsumerBuilder/newBuilder configs
                                                      msg-handler
-                                                     key-serializer
-                                                     value-serializer)
+                                                     key-deserializer
+                                                     value-deserializer)
                   (LcKafkaConsumerBuilder/newBuilder configs msg-handler))]
     (.pollTimeoutMs builder poll-timeout-ms)
     (.messageHandler builder msg-handler)

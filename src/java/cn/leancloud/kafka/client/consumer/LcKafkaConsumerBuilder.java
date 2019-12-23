@@ -282,7 +282,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     private Consumer<K, V> buildConsumer(boolean autoCommit) {
         checkConfigs(BasicConsumerConfigs.values());
-        ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
+        configs = ENABLE_AUTO_COMMIT.set(configs, Boolean.toString(autoCommit));
         if (keyDeserializer != null) {
             assert valueDeserializer != null;
         } else {
