@@ -38,12 +38,7 @@ public final class LcKafkaConsumer<K, V> implements Closeable {
         this.workerPool = builder.getWorkerPool();
         this.shutdownWorkerPoolOnStop = builder.isShutdownWorkerPoolOnStop();
         this.policy = builder.getPolicy();
-        this.fetcher = new Fetcher<>(
-                consumer,
-                builder.getPollTimeout(),
-                builder.getMessageHandler(),
-                builder.getWorkerPool(),
-                policy);
+        this.fetcher = new Fetcher<>(builder);
         this.fetcherThread = new Thread(fetcher);
     }
 

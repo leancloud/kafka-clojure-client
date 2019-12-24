@@ -46,11 +46,11 @@ public class LcKafkaConsumerBuilderTest {
     public void testNullKafkaConfigs() {
         assertThatThrownBy(() -> LcKafkaConsumerBuilder.newBuilder(null, testingHandler))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("kafkaConsumerConfigs");
+                .hasMessage("kafkaConfigs");
 
         assertThatThrownBy(() -> LcKafkaConsumerBuilder.newBuilder(null, testingHandler, keyDeserializer, valueDeserializer))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("kafkaConsumerConfigs");
+                .hasMessage("kafkaConfigs");
     }
 
     @Test

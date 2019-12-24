@@ -61,7 +61,7 @@ public class FetcherTest {
     @Test
     public void testGracefulShutdown() throws Exception {
         executorService = mock(ExecutorService.class);
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy, 0);
         fetcherThread = new Thread(fetcher);
 
         doNothing().when(executorService).execute(any(Runnable.class));
@@ -79,7 +79,7 @@ public class FetcherTest {
 
     @Test
     public void testHandleMsgFailed() throws Exception {
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy, 10_000);
         fetcherThread = new Thread(fetcher);
 
         assignPartitions(consumer, toPartitions(singletonList(0)), 0L);
@@ -99,7 +99,7 @@ public class FetcherTest {
 
     @Test
     public void testNoPauseWhenMsgHandledFastEnough() throws Exception {
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executorService, policy, 10_000);
         fetcherThread = new Thread(fetcher);
 
         final CyclicBarrier barrier = new CyclicBarrier(2);
@@ -127,7 +127,7 @@ public class FetcherTest {
     @Test
     public void testPauseResume() throws Exception {
         final ExecutorService executors = Executors.newCachedThreadPool(new NamedThreadFactory("Testing-Pool"));
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executors, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executors, policy, 10_000);
         fetcherThread = new Thread(fetcher);
 
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));
@@ -180,7 +180,7 @@ public class FetcherTest {
     @Test
     public void testPauseAndPartialResume() throws Exception {
         final ExecutorService executors = Executors.newCachedThreadPool();
-        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executors, policy);
+        fetcher = new Fetcher<>(consumer, pollTimeout, messageHandler, executors, policy, 0);
         fetcherThread = new Thread(fetcher);
 
         final List<TopicPartition> partitions = toPartitions(IntStream.range(0, 30).boxed().collect(toList()));

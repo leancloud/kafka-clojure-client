@@ -12,10 +12,7 @@ import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 final class Fetcher<K, V> implements Runnable, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(Fetcher.class);
@@ -26,19 +23,27 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     private final ExecutorCompletionService<ConsumerRecord<K, V>> service;
     private final Map<ConsumerRecord<K, V>, Future<ConsumerRecord<K, V>>> pendingFutures;
     private final CommitPolicy<K, V> policy;
+    private final long gracefulShutdownMillis;
     private volatile boolean closed;
+
+    Fetcher(LcKafkaConsumerBuilder<K, V> consumerBuilder) {
+        this(consumerBuilder.getConsumer(), consumerBuilder.getPollTimeout(), consumerBuilder.getMessageHandler(),
+                consumerBuilder.getWorkerPool(), consumerBuilder.getPolicy(), consumerBuilder.gracefulShutdownMillis());
+    }
 
     Fetcher(Consumer<K, V> consumer,
             long pollTimeout,
             MessageHandler<K, V> handler,
             ExecutorService workerPool,
-            CommitPolicy<K, V> policy) {
+            CommitPolicy<K, V> policy,
+            long gracefulShutdownMillis) {
         this.pendingFutures = new HashMap<>();
         this.consumer = consumer;
         this.pollTimeout = pollTimeout;
         this.handler = handler;
         this.service = new ExecutorCompletionService<>(workerPool);
         this.policy = policy;
+        this.gracefulShutdownMillis = gracefulShutdownMillis;
     }
 
     @Override
@@ -130,12 +135,32 @@ final class Fetcher<K, V> implements Runnable, Closeable {
     }
 
     private void gracefulShutdown() {
-        policy.partialCommit();
-        for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
-            future.cancel(false);
+        final long start = System.currentTimeMillis();
+        long remain = gracefulShutdownMillis;
+        try {
+            for (Future<ConsumerRecord<K, V>> future : pendingFutures.values()) {
+                try {
+                    if (remain > 0) {
+                        future.get(remain, TimeUnit.MILLISECONDS);
+                        remain = gracefulShutdownMillis - (System.currentTimeMillis() - start);
+                    } else {
+                        future.cancel(false);
+                    }
+                } catch (TimeoutException ex) {
+                    remain = 0;
+                }
+            }
+            processCompletedRecords();
+        } catch (InterruptedException ex) {
+            logger.warn("Graceful shutdown was interrupted.");
+        } catch (ExecutionException ex) {
+            logger.error("Handle message got unexpected exception. Continue shutdown without wait handling message done.", ex);
         }
 
+        policy.partialCommit();
+
         pendingFutures.clear();
+
         logger.debug("Fetcher thread exit.");
     }
 }

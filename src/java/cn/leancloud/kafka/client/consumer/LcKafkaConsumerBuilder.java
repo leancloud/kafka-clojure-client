@@ -68,6 +68,7 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     private long pollTimeout = 100;
     private int maxPendingAsyncCommits = 10;
+    private long gracefulShutdownMillis = 10_000;
     private Map<String, Object> configs;
     private MessageHandler<K, V> messageHandler;
     @Nullable
@@ -132,6 +133,18 @@ public final class LcKafkaConsumerBuilder<K, V> {
     public LcKafkaConsumerBuilder<K, V> pollTimeout(Duration pollTimeout) {
         requireNonNull(pollTimeout, "pollTimeout");
         this.pollTimeout = pollTimeout.toMillis();
+        return this;
+    }
+
+    public LcKafkaConsumerBuilder<K,V> gracefulShutdownMs(long gracefulShutdownMs) {
+        requireArgument(gracefulShutdownMs >= 0, "gracefulShutdownMillis: %s (expected >= 0)", gracefulShutdownMs);
+        this.gracefulShutdownMillis = gracefulShutdownMs;
+        return this;
+    }
+
+    public LcKafkaConsumerBuilder<K,V> gracefulShutdownMs(Duration duration) {
+        requireNonNull(duration);
+        this.gracefulShutdownMillis = duration.toMillis();
         return this;
     }
 
@@ -278,6 +291,10 @@ public final class LcKafkaConsumerBuilder<K, V> {
 
     long getPollTimeout() {
         return pollTimeout;
+    }
+
+    long gracefulShutdownMillis() {
+        return gracefulShutdownMillis;
     }
 
     CommitPolicy<K, V> getPolicy() {

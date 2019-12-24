@@ -1,6 +1,6 @@
-(defproject cn.leancloud/kafka-clojure-client "0.0.3"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject cn.leancloud/kafka-clojure-client "0.0.4"
+  :description "A kafka client written in clojure and used by LeanCloud"
+  :url "https://leancloud.cn"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url  "https://www.eclipse.org/legal/epl-2.0/"}
   :target-path "target/%s"
