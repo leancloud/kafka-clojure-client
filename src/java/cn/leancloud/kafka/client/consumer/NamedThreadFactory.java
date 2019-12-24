@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Internal use only, may change in the future.
  */
-final class NamedThreadFactory implements ThreadFactory {
+public final class NamedThreadFactory implements ThreadFactory {
 
     private static final LogUncaughtExceptionHandler UNCAUGHT_EX_HANDLER = new LogUncaughtExceptionHandler();
 
@@ -27,11 +27,11 @@ final class NamedThreadFactory implements ThreadFactory {
     private final AtomicInteger counter = new AtomicInteger(0);
     private final boolean       daemon;
 
-    NamedThreadFactory(String prefix) {
+    public NamedThreadFactory(String prefix) {
         this(prefix, false);
     }
 
-    NamedThreadFactory(String prefix, boolean daemon) {
+    public NamedThreadFactory(String prefix, boolean daemon) {
         super();
         this.prefix = prefix;
         this.daemon = daemon;

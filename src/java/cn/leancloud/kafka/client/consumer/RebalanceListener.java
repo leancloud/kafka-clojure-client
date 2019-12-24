@@ -47,8 +47,13 @@ final class RebalanceListener<K, V> implements ConsumerRebalanceListener {
                     .stream()
                     .filter(p -> pausedPartitions.contains(p))
                     .collect(toSet());
-            logger.info("Pause previous paused partitions: {}", partitionToPause);
-            consumer.pause(partitionToPause);
+            if (partitionToPause.isEmpty()) {
+                logger.info("Previous paused partitions: {} were all revoked", pausedPartitions);
+            } else {
+                logger.info("Pause previous paused partitions: {}", partitionToPause);
+                consumer.pause(partitionToPause);
+            }
+
             pausedPartitions = Collections.emptySet();
         }
     }
