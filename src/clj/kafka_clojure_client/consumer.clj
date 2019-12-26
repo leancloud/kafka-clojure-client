@@ -5,6 +5,7 @@
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                                            worker-pool
+                                                                           graceful-shutdown-timeout-ms
                                                                            shutdown-worker-pool-on-stop
                                                                            max-pending-async-commits
                                                                            key-deserializer
@@ -17,8 +18,10 @@
                                                      key-deserializer
                                                      value-deserializer)
                   (LcKafkaConsumerBuilder/newBuilder configs msg-handler))]
-    (.pollTimeoutMs builder poll-timeout-ms)
+    (.pollTimeoutMillis builder poll-timeout-ms)
     (.messageHandler builder msg-handler)
+    (when graceful-shutdown-timeout-ms
+      (.gracefulShutdownTimeoutMillis builder graceful-shutdown-timeout-ms))
     (when worker-pool
       (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop true)))
     (.maxPendingAsyncCommits builder (int max-pending-async-commits))
