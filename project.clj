@@ -20,4 +20,5 @@
                  [cn.leancloud/kafka-java-consumer "0.0.2"]]
   :repositories [["github" {:url   "https://maven.pkg.github.com/leancloud/kafka-clojure-client"
                             :creds :gpg}]]
-  )
+  :deploy-repositories [["releases" :clojars]
+                        ["snapshots" :clojars]])
