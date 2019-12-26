@@ -1,5 +1,6 @@
 (ns kafka-clojure-client.consumer
-  (:import (cn.leancloud.kafka.client.consumer LcKafkaConsumerBuilder LcKafkaConsumer SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
+  (:import (cn.leancloud.kafka.consumer LcKafkaConsumerBuilder LcKafkaConsumer
+                                        SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
            (java.util.function BiConsumer)))
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
