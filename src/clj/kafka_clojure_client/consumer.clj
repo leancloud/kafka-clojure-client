@@ -59,9 +59,10 @@
 (defn ^LcKafkaConsumer create-auto-commit-consumer [kafka-configs msg-handler & opts]
   (.buildAuto (create-builder kafka-configs msg-handler opts)))
 
-(defn subscribe [^LcKafkaConsumer consumer topic]
-  (.subscribe consumer topic)
-  consumer)
+(defn subscribe [^LcKafkaConsumer consumer topics]
+  (let [topics (if (sequential? topics) topics [topics])]
+    (.subscribe consumer topics)
+    consumer))
 
 (defn close [^LcKafkaConsumer consumer]
   (.close consumer))
