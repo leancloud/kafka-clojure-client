@@ -1,11 +1,13 @@
 (ns kafka-clojure-client.consumer
   (:import (cn.leancloud.kafka.consumer LcKafkaConsumerBuilder LcKafkaConsumer
-                                        SafetyNetMessageHandler RetriableMessageHandler MessageHandler)
+                                        CatchAllExceptionConsumerRecordHandler RetriableConsumerRecordHandler
+                                        ConsumerRecordHandler)
            (java.util.function BiConsumer)))
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                                            worker-pool
                                                                            graceful-shutdown-timeout-ms
+                                                                           force-whole-commit-interval-ms
                                                                            shutdown-worker-pool-on-stop
                                                                            max-pending-async-commits
                                                                            key-deserializer
@@ -18,33 +20,34 @@
                                                      key-deserializer
                                                      value-deserializer)
                   (LcKafkaConsumerBuilder/newBuilder configs msg-handler))]
-    (.pollTimeoutMillis builder poll-timeout-ms)
-    (.messageHandler builder msg-handler)
+    (.pollTimeoutMillis builder (long poll-timeout-ms))
+    (when force-whole-commit-interval-ms
+      (.forceWholeCommitIntervalInMillis builder (long force-whole-commit-interval-ms)))
     (when graceful-shutdown-timeout-ms
-      (.gracefulShutdownTimeoutMillis builder graceful-shutdown-timeout-ms))
+      (.gracefulShutdownTimeoutMillis builder (long graceful-shutdown-timeout-ms)))
     (when worker-pool
       (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop true)))
     (.maxPendingAsyncCommits builder (int max-pending-async-commits))
     builder))
 
-(defn ^MessageHandler safety-net-message-handler
-  ([handler] (SafetyNetMessageHandler. handler))
+(defn ^ConsumerRecordHandler catch-all-exception-record-handler
+  ([handler] (CatchAllExceptionConsumerRecordHandler. handler))
   ([handler error-consumer]
-   (SafetyNetMessageHandler. handler (reify BiConsumer
-                                       (accept [_ record throwable]
-                                         (error-consumer record throwable))))))
+   (CatchAllExceptionConsumerRecordHandler. handler (reify BiConsumer
+                                                      (accept [_ record throwable]
+                                                        (error-consumer record throwable))))))
 
-(defn ^MessageHandler retriable-message-handler [handler max-retry-times]
-  (RetriableMessageHandler. handler max-retry-times))
+(defn ^ConsumerRecordHandler retriable-record-handler [handler max-retry-times]
+  (RetriableConsumerRecordHandler. handler max-retry-times))
 
-(defn to-message-handler [handler-fn]
-  (reify MessageHandler
-    (handleMessage [_ record]
+(defn to-record-handler [handler-fn]
+  (reify ConsumerRecordHandler
+    (handleRecord [_ record]
       (handler-fn record))))
 
-(defn to-value-only-message-handler [handler-fn]
-  (reify MessageHandler
-    (handleMessage [_ record]
+(defn to-value-only-record-handler [handler-fn]
+  (reify ConsumerRecordHandler
+    (handleRecord [_ record]
       (handler-fn (.value record)))))
 
 (defn ^LcKafkaConsumer create-sync-commit-consumer [kafka-configs msg-handler & opts]
