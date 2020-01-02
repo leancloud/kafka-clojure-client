@@ -7,7 +7,7 @@
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                                            worker-pool
                                                                            graceful-shutdown-timeout-ms
-                                                                           force-whole-commit-interval-ms
+                                                                           recommit-interval-ms
                                                                            shutdown-worker-pool-on-stop
                                                                            max-pending-async-commits
                                                                            key-deserializer
@@ -21,8 +21,8 @@
                                                      value-deserializer)
                   (LcKafkaConsumerBuilder/newBuilder configs msg-handler))]
     (.pollTimeoutMillis builder (long poll-timeout-ms))
-    (when force-whole-commit-interval-ms
-      (.forceWholeCommitIntervalInMillis builder (long force-whole-commit-interval-ms)))
+    (when recommit-interval-ms
+      (.recommitIntervalInMillis builder (long recommit-interval-ms)))
     (when graceful-shutdown-timeout-ms
       (.gracefulShutdownTimeoutMillis builder (long graceful-shutdown-timeout-ms)))
     (when worker-pool
