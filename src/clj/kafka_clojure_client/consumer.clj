@@ -2,7 +2,10 @@
   (:import (cn.leancloud.kafka.consumer LcKafkaConsumerBuilder LcKafkaConsumer
                                         CatchAllExceptionConsumerRecordHandler RetriableConsumerRecordHandler
                                         ConsumerRecordHandler)
-           (java.util.function BiConsumer)))
+           (java.util.function BiConsumer)
+           (java.util.concurrent CompletableFuture)
+           (java.util Collection)
+           (java.util.regex Pattern)))
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                                            worker-pool
@@ -10,6 +13,7 @@
                                                                            recommit-interval-ms
                                                                            shutdown-worker-pool-on-stop
                                                                            max-pending-async-commits
+                                                                           handle-record-timeout-ms
                                                                            key-deserializer
                                                                            value-deserializer]
                                                                     :or   {poll-timeout-ms           100
@@ -23,6 +27,8 @@
     (.pollTimeoutMillis builder (long poll-timeout-ms))
     (when recommit-interval-ms
       (.recommitIntervalInMillis builder (long recommit-interval-ms)))
+    (when handle-record-timeout-ms
+      (.handleRecordTimeoutMillis builder (long handle-record-timeout-ms)))
     (when graceful-shutdown-timeout-ms
       (.gracefulShutdownTimeoutMillis builder (long graceful-shutdown-timeout-ms)))
     (when worker-pool
@@ -65,10 +71,12 @@
 (defn ^LcKafkaConsumer create-auto-commit-consumer [kafka-configs msg-handler & opts]
   (.buildAuto (create-builder kafka-configs msg-handler opts)))
 
-(defn subscribe [^LcKafkaConsumer consumer topics]
+(defn ^CompletableFuture subscribe [^LcKafkaConsumer consumer topics]
   (let [topics (if (sequential? topics) topics [topics])]
-    (.subscribe consumer topics)
-    consumer))
+    (.subscribe consumer ^Collection topics)))
+
+(defn ^CompletableFuture subscribe [^LcKafkaConsumer consumer pattern]
+  (.subscribe consumer ^Pattern pattern))
 
 (defn close [^LcKafkaConsumer consumer]
   (.close consumer))
