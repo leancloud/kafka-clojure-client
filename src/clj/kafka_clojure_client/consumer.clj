@@ -5,7 +5,8 @@
            (java.util.function BiConsumer)
            (java.util.concurrent CompletableFuture)
            (java.util Collection)
-           (java.util.regex Pattern)))
+           (java.util.regex Pattern)
+           (java.time Duration)))
 
 (defn- ^LcKafkaConsumerBuilder create-builder [configs msg-handler {:keys [poll-timeout-ms
                                                                            worker-pool
@@ -43,8 +44,11 @@
                                                       (accept [_ record throwable]
                                                         (error-consumer record throwable))))))
 
-(defn ^ConsumerRecordHandler retriable-record-handler [handler max-retry-times]
-  (RetriableConsumerRecordHandler. handler max-retry-times))
+(defn ^ConsumerRecordHandler retriable-record-handler
+  ([handler max-retry-times]
+   (RetriableConsumerRecordHandler. handler max-retry-times))
+  ([handler max-retry-times retry-interval-ms]
+   (RetriableConsumerRecordHandler. handler max-retry-times (Duration/ofMillis retry-interval-ms))))
 
 (defn to-record-handler [handler-fn]
   (reify ConsumerRecordHandler
