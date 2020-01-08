@@ -1,8 +1,9 @@
 (ns kafka-clojure-client.consumer
+  (:require [clojure.tools.logging :as log])
   (:import (cn.leancloud.kafka.consumer LcKafkaConsumerBuilder LcKafkaConsumer
                                         CatchAllExceptionConsumerRecordHandler RetriableConsumerRecordHandler
-                                        ConsumerRecordHandler)
-           (java.util.function BiConsumer)
+                                        ConsumerRecordHandler UnsubscribedStatus)
+           (java.util.function BiConsumer Consumer)
            (java.util.concurrent CompletableFuture)
            (java.util Collection)
            (java.util.regex Pattern)
@@ -33,7 +34,7 @@
     (when graceful-shutdown-timeout-ms
       (.gracefulShutdownTimeoutMillis builder (long graceful-shutdown-timeout-ms)))
     (when worker-pool
-      (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop true)))
+      (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop false)))
     (.maxPendingAsyncCommits builder (int max-pending-async-commits))
     builder))
 
@@ -75,12 +76,36 @@
 (defn ^LcKafkaConsumer create-auto-commit-consumer [kafka-configs msg-handler & opts]
   (.buildAuto (create-builder kafka-configs msg-handler opts)))
 
-(defn ^CompletableFuture subscribe-to-topics [^LcKafkaConsumer consumer ^Collection topics]
-  (let [topics (if (sequential? topics) topics [topics])]
-    (.subscribe consumer topics)))
+(defn ^LcKafkaConsumer subscribe-to-topics
+  ([^LcKafkaConsumer consumer topics]
+   (.thenAccept (.subscribe consumer ^Collection topics)
+                (reify Consumer
+                  (accept [_ status]
+                    (when (not= status UnsubscribedStatus/CLOSED)
+                      (log/errorf "Consumer for topics: {} exit unexpectedly with status: {}" topics status)))))
+   consumer)
+  ([^LcKafkaConsumer consumer topics on-unsubscribe-callback]
+   (.thenAccept (.subscribe consumer ^Collection topics)
+                (reify Consumer
+                  (accept [_ status]
+                    (on-unsubscribe-callback status))))
+   consumer))
 
-(defn ^CompletableFuture subscribe-to-pattern [^LcKafkaConsumer consumer ^Pattern pattern]
-  (.subscribe consumer pattern))
+(defn ^LcKafkaConsumer subscribe-to-pattern
+  ([^LcKafkaConsumer consumer ^Pattern pattern]
+   (.thenAccept (.subscribe consumer pattern)
+                (reify Consumer
+                  (accept [_ status]
+                    (when (not= status UnsubscribedStatus/CLOSED)
+                      (log/errorf "Consumer for pattern: {} exit unexpectedly with status: {}" pattern status)))))
+   consumer)
+  ([^LcKafkaConsumer consumer ^Pattern pattern on-unsubscribe-callback]
+   (.thenAccept (.subscribe consumer pattern)
+                (reify Consumer
+                  (accept [_ status]
+                    (on-unsubscribe-callback status))))
+   consumer))
 
 (defn close [^LcKafkaConsumer consumer]
-  (.close consumer))
+  (.close consumer)
+  consumer)
