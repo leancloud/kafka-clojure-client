@@ -82,7 +82,7 @@
                 (reify Consumer
                   (accept [_ status]
                     (when (not= status UnsubscribedStatus/CLOSED)
-                      (log/errorf "Consumer for topics: {} exit unexpectedly with status: {}" topics status)))))
+                      (log/errorf "Consumer for topics: %s exit unexpectedly with status: %s" topics status)))))
    consumer)
   ([^LcKafkaConsumer consumer topics on-unsubscribe-callback]
    (.thenAccept (.subscribe consumer ^Collection topics)
@@ -97,7 +97,7 @@
                 (reify Consumer
                   (accept [_ status]
                     (when (not= status UnsubscribedStatus/CLOSED)
-                      (log/errorf "Consumer for pattern: {} exit unexpectedly with status: {}" pattern status)))))
+                      (log/errorf "Consumer for pattern: %s exit unexpectedly with status: %s" pattern status)))))
    consumer)
   ([^LcKafkaConsumer consumer ^Pattern pattern on-unsubscribe-callback]
    (.thenAccept (.subscribe consumer pattern)
