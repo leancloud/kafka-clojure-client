@@ -10,7 +10,7 @@
   ([configs]
    {:pre [(contains? configs "bootstrap.servers")]}
    (KafkaProducer. configs))
-  ([^Map configs {:keys [key-serializer value-serializer]}]
+  ([^Map configs & {:keys [key-serializer value-serializer]}]
    {:pre [(contains? configs "bootstrap.servers")]}
    (KafkaProducer. configs ^Serializer key-serializer ^Serializer value-serializer)))
 
