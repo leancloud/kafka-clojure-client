@@ -32,7 +32,7 @@
 
 (defn ^Future send-record
   ([producer record]
-   (send producer record nil))
+   (send-record producer record nil))
   ([^Producer producer ^ProducerRecord record call-back]
    (if call-back
      (.send producer record (reify Callback
