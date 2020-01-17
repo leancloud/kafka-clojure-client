@@ -30,7 +30,7 @@
                    (:value record)
                    (map header (:headers record))))
 
-(defn ^Future send
+(defn ^Future send-record
   ([producer record]
    (send producer record nil))
   ([^Producer producer ^ProducerRecord record call-back]
@@ -39,6 +39,12 @@
                               (onCompletion [_ metadata exception]
                                 (call-back metadata exception))))
      (.send producer record nil))))
+
+(defn ^Future send
+  ([producer record-map]
+   (send-record producer (record record-map) nil))
+  ([^Producer producer record-map call-back]
+   (send-record producer (record record-map) call-back)))
 
 (defn ^List partitions-for-topic [producer topic]
   (.partitionsFor ^Producer producer topic))

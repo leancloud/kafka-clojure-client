@@ -4,7 +4,6 @@
                                         CatchAllExceptionConsumerRecordHandler RetriableConsumerRecordHandler
                                         ConsumerRecordHandler UnsubscribedStatus)
            (java.util.function BiConsumer Consumer)
-           (java.util.concurrent CompletableFuture)
            (java.util Collection)
            (java.util.regex Pattern)
            (java.time Duration)))
