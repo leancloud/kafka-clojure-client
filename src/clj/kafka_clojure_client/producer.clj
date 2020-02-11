@@ -7,12 +7,13 @@
            (org.apache.kafka.common.header Header)))
 
 (defn ^Producer create-kafka-producer
+  "Create a Kafka producer with configurations and serializers"
   ([configs]
    {:pre [(contains? configs "bootstrap.servers")]}
    (KafkaProducer. configs))
-  ([^Map configs & {:keys [key-serializer value-serializer]}]
+  ([^Map configs ^Serializer key-serializer ^Serializer value-serializer]
    {:pre [(contains? configs "bootstrap.servers")]}
-   (KafkaProducer. configs ^Serializer key-serializer ^Serializer value-serializer)))
+   (KafkaProducer. configs key-serializer value-serializer)))
 
 (defn- ^Header header
   ([[k v]] (header k v))
@@ -21,7 +22,9 @@
      (key [_] k)
      (value [_] v))))
 
-(defn ^ProducerRecord record [record]
+(defn ^ProducerRecord record
+  "Convert a map to ProducerRecord."
+  [record]
   (ProducerRecord. (:topic record)
                    (some-> (:partition record)
                            int)
@@ -31,7 +34,8 @@
                    (map header (:headers record))))
 
 (defn ^Future send-record
-  ([producer record]
+  "Send a ProducerRecord with a producer."
+  ([^Producer producer ^ProducerRecord record]
    (send-record producer record nil))
   ([^Producer producer ^ProducerRecord record call-back]
    (if call-back
@@ -41,6 +45,7 @@
      (.send producer record nil))))
 
 (defn ^Future send
+  "Send a Map which can be converted to ProducerRecord by calling function \"record\" with a producer."
   ([producer record-map]
    (send-record producer (record record-map) nil))
   ([^Producer producer record-map call-back]
@@ -52,11 +57,13 @@
 (defn ^Map metrics [producer]
   (.metrics ^Producer producer))
 
-(defn ^Producer flush [^Producer producer]
+(defn ^Producer flush
+  [^Producer producer]
   (.flush producer)
   producer)
 
 (defn close
+  "Close a Kafka producer"
   ([producer]
    (.close ^Producer producer)
    nil)
