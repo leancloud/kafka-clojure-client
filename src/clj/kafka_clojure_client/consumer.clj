@@ -68,7 +68,32 @@
   then will drag the LcKafkaConsumer to shutdown. This mechanism is to prevent the \"livelock\" situation where it
   seems the LcKafkaConsumer is OK, continuing on sending heartbeat and calling Consumer#poll(long),
   but no progress is being made.
-  The default value is zero which means no limit on handling a {@code ConsumerRecord}.
+  The default value is zero which means no limit on handling a ConsumerRecord.
+
+  :sync-commit-retry-interval-ms
+  Sets the amount of time in milli seconds to wait before retry a failed synchronous commit on calling KafkaConsumer#commitSync().
+  or KafkaConsumer#commitSync(Map). Every synchronous commit may fail but most of times they are caused by
+  org.apache.kafka.common.errors.RetriableException and we can retry commit on this kind of exception safely.
+  This configuration set the interval between each retry.
+  For those failures of asynchronous commit by calling KafkaConsumer#commitAsync() or
+  KafkaConsumer#commitAsync(OffsetCommitCallback), we retry them by a synchronous commit automatically
+  when we found any of them. So we only need configurations for synchronous commits.
+  The default value is 1000.
+
+  :max-attempts-for-each-sync-commit
+  Sets the maximum attempt times for a synchronous commit by calling KafkaConsumer#commitSync().
+  or KafkaConsumer#commitSync(Map). Every synchronous commit may fail but most of times they are caused by
+  org.apache.kafka.common.errors.RetriableException and we can retry commit on this kind of exception safely.
+  This configuration cap the maximum retry times. If attempts reach to `maxAttemptsForEachSyncCommit`, the cached
+  org.apache.kafka.common.errors.RetriableException will be rethrown by then it will cause the Kafka Consumer
+  to stop and quit.
+  For those failures of asynchronous commit by calling KafkaConsumer#commitAsync() or
+  KafkaConsumer#commitAsync(OffsetCommitCallback), we retry them by a synchronous commit automatically
+  when we found any of them. So we only need configurations for synchronous commits.
+  Please note that `maxAttemptsForEachSyncCommit multiplies `syncCommitRetryInterval` should far lower than
+  `max.poll.interval.ms`, otherwise Kafka Consumer may encounter session timeout or polling timeout due to not
+  calling KafkaConsumer#poll(long) for too long.
+  The default value is 3.
 
   :key-deserializer
   the deserializer for key that implements org.apache.kafka.common.serialization.Deserializer
@@ -83,6 +108,8 @@
            shutdown-worker-pool-on-stop
            max-pending-async-commits
            handle-record-timeout-ms
+           sync-commit-retry-interval-ms
+           max-attempts-for-each-sync-commit
            key-deserializer
            value-deserializer]
     :or   {poll-timeout-ms           100
@@ -100,6 +127,10 @@
       (.handleRecordTimeoutMillis builder (long handle-record-timeout-ms)))
     (when graceful-shutdown-timeout-ms
       (.gracefulShutdownTimeoutMillis builder (long graceful-shutdown-timeout-ms)))
+    (when sync-commit-retry-interval-ms
+      (.syncCommitRetryIntervalMillis builder (long sync-commit-retry-interval-ms)))
+    (when max-attempts-for-each-sync-commit
+      (.maxAttemptsForEachSyncCommit builder (int max-attempts-for-each-sync-commit)))
     (when worker-pool
       (.workerPool builder worker-pool (or shutdown-worker-pool-on-stop false)))
     (.maxPendingAsyncCommits builder (int max-pending-async-commits))
@@ -203,7 +234,7 @@
    when the consumer crash.
 
    If any async commit is failed or the number of pending async commits is beyond the limit set by
-   {@link LcKafkaConsumerBuilder#maxPendingAsyncCommits(int)}, this consumer will do a sync commit to commit all the
+   LcKafkaConsumerBuilder#maxPendingAsyncCommits(int), this consumer will do a sync commit to commit all the
    records which have been handled.
 
    This kind of consumer ensures to do a sync commit to commit all the finished records at that time when the
@@ -227,7 +258,7 @@
    async commit to mitigate the overhead causing by high committing times.
 
    If any async commit is failed or the number of pending async commits is beyond the limit set by
-   {@link LcKafkaConsumerBuilder#maxPendingAsyncCommits(int)}, this consumer will do a sync commit to commit all the
+   LcKafkaConsumerBuilder#maxPendingAsyncCommits(int), this consumer will do a sync commit to commit all the
    records which have been handled.
 
    This kind of consumer ensures to do a sync commit to commit all the finished records at that time when the
@@ -247,8 +278,8 @@
 
 (defn ^LcKafkaConsumer create-auto-commit-consumer
   "Build a consumer which commits offset automatically at fixed interval. It is both OK for with or without a
-   worker thread pool. But without a worker pool, please tune the {@code max.poll.interval.ms} in
-   Kafka configs as mentioned in {@link LcKafkaConsumerBuilder#workerPool(ExecutorService, boolean)}.
+   worker thread pool. But without a worker pool, please tune the `max.poll.interval.ms` in
+   Kafka configs as mentioned in LcKafkaConsumerBuilder#workerPool(ExecutorService, boolean).
    This kind of consumer requires the following kafka configs must be set, otherwise
    IllegalArgumentException will be thrown:
     * max.poll.interval.ms</code></li>
@@ -284,7 +315,7 @@
 (defn ^LcKafkaConsumer subscribe-to-pattern
   "Subscribe to all topics matching specified pattern to get dynamically assigned partitions
    The pattern matching will be done periodically against all topics existing at the time of check.
-   This can be controlled through the {@code metadata.max.age.ms} configuration: by lowering
+   This can be controlled through the `metadata.max.age.ms` configuration: by lowering
    the max metadata age, the consumer will refresh metadata more often and check for matching topics."
   ([^LcKafkaConsumer consumer ^Pattern pattern]
    (.thenAccept (.subscribe consumer pattern)
