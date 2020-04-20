@@ -18,7 +18,7 @@
   :jvm-opts ["-Dclojure.compiler.elide-meta='[:doc :added]'"]
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/tools.logging "0.5.0"]
-                 [cn.leancloud/kafka-java-consumer "0.1.2"]]
+                 [cn.leancloud/kafka-java-consumer "0.1.3"]]
   :repositories [["github" {:url   "https://maven.pkg.github.com/leancloud/kafka-clojure-client"
                             :creds :gpg}]]
   :deploy-repositories [["releases" :clojars]
